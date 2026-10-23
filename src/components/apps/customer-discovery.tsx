@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Search, ChevronLeft, Plus, SlidersHorizontal, Store, UtensilsCrossed } from "lucide-react";
+import { Search, ChevronLeft, Plus, Store, UtensilsCrossed, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import type { CatalogMeal, CatalogRestaurant } from "@/lib/customer-catalog";
 
@@ -36,13 +36,13 @@ export function CustomerDiscovery(p: Props) {
         <Search aria-hidden="true" />
         <input
           aria-label={p.ar ? "البحث عن مطعم أو وجبة" : "Search restaurants or meals"}
-          placeholder={p.ar ? "وش ودّك تاكل اليوم؟" : "What are you craving today?"}
+          placeholder={p.ar ? "ابحث عن مطعم أو وجبة" : "Search restaurants or meals"}
           value={p.search}
           onChange={(e) => p.onSearch(e.target.value)}
         />
         {p.search && (
           <Button variant="ghost" size="icon" aria-label="مسح البحث" onClick={() => p.onSearch("")}>
-            ×
+            <X />
           </Button>
         )}
       </div>
@@ -73,7 +73,7 @@ export function CustomerDiscovery(p: Props) {
         </section>
       )}
       <div className="customer-discovery-content">
-        <Button variant="ghost" className="customer-browse-band" onClick={p.onBrowse}>
+        {!p.directory && p.restaurants.length > 0 && <Button variant="ghost" className="customer-browse-band" onClick={p.onBrowse}>
           <span className="customer-browse-icon">
             <UtensilsCrossed />
           </span>
@@ -82,7 +82,8 @@ export function CustomerDiscovery(p: Props) {
             <small>{p.ar ? "تصفّح قوائم الطعام" : "Explore the menus"}</small>
           </span>
           <ChevronLeft />
-        </Button>
+        </Button>}
+        {p.directory && <h1 className="customer-directory-title">{p.ar ? "المطاعم" : "Restaurants"}</h1>}
         {p.loading ? (
           <div className="customer-empty">
             {p.ar ? "جارِ تحميل المطاعم…" : "Loading restaurants…"}
@@ -101,40 +102,12 @@ export function CustomerDiscovery(p: Props) {
           </div>
         ) : (
           <>
-            {p.directory && (
-              <>
-                <div className="customer-section-heading">
-                  <h2>{p.ar ? "الأقسام" : "Categories"}</h2>
-                  <Store />
-                </div>
-                <div className="customer-category-grid">
-                  {p.categories.map((c) => (
-                    <Button
-                      variant="ghost"
-                      key={c}
-                      onClick={() => p.onCategory(c)}
-                      aria-pressed={p.category === c}
-                      className={p.category === c ? "is-selected" : ""}
-                    >
-                      <UtensilsCrossed />
-                      <strong>{c}</strong>
-                    </Button>
-                  ))}
-                </div>
-              </>
-            )}
+            {p.categories.length > 0 && (
             <div className="customer-filters">
               <Button
                 variant="outline"
-                size="icon"
-                aria-label="عرض كل الوجبات"
                 onClick={() => p.onCategory("all")}
-              >
-                <SlidersHorizontal />
-              </Button>
-              <Button
-                variant="outline"
-                onClick={() => p.onCategory("all")}
+                aria-pressed={p.category === "all"}
                 className={p.category === "all" ? "is-selected" : ""}
               >
                 {p.ar ? "الكل" : "All"}
@@ -150,7 +123,7 @@ export function CustomerDiscovery(p: Props) {
                   {c}
                 </Button>
               ))}
-            </div>
+            </div>)}
             {!p.directory && (
               <>
                 <div className="customer-section-heading">

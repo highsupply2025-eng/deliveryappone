@@ -622,7 +622,7 @@ html:not(.dark) .shadow-2xl {
 .customer-sheet-overlay {position:fixed;inset:0;z-index:50;background:oklch(0.2 0.01 215 / .5);}.foodhub-customer.customer-sheet {position:fixed;z-index:51;bottom:0;left:50%;transform:translateX(-50%);width:100%;max-width:680px;min-height:0;max-height:90dvh;overflow:auto;border-radius:26px 26px 0 0;padding:38px 24px calc(28px + env(safe-area-inset-bottom));display:flex;flex-direction:column;gap:20px;outline:none;}.customer-sheet-handle {position:absolute;width:45px;height:4px;top:12px;left:calc(50% - 22px);border-radius:4px;background:var(--muted-foreground);}.customer-sheet-title {font-size:24px;font-weight:800;padding-inline-end:35px;}.customer-sheet-close {position:absolute;top:28px;inset-inline-end:18px;}.customer-sheet-food {width:100%;max-height:240px;object-fit:cover;border-radius:8px;}.customer-sheet>p {font-size:13px;color:var(--muted-foreground);}.customer-sheet .customer-form {margin:0;}.customer-setting-row {display:flex;align-items:center;gap:12px;}.customer-setting-row button {margin-inline-start:auto;}
 @media(min-width:768px) {.customer-app-shell {border-inline:1px solid var(--border);}.customer-meal-grid {gap:28px 18px;}.customer-meal-name {font-size:14px!important;}.customer-meal-price {font-size:20px;}}
 @media(max-width:359px) {.customer-meal-grid {grid-template-columns:repeat(2,minmax(0,1fr));}.customer-header-brand>strong {font-size:17px;}.customer-nav-item small {font-size:9px;}}
-.foodhub-customer.customer-information {background:var(--customer-teal-soft);padding-bottom:calc(40px + env(safe-area-inset-bottom));}
+.foodhub-customer.customer-information {background:var(--background);padding-bottom:calc(40px + env(safe-area-inset-bottom));}
 .customer-information-header {position:sticky;top:0;z-index:30;background:var(--background);border-bottom:1px solid var(--border);display:flex;align-items:center;gap:16px;padding:20px max(20px,calc((100% - 760px)/2));}
 .customer-information-header h1 {flex:1;text-align:center;font-size:20px;padding-inline-end:44px;}
 .customer-information-header button {flex-shrink:0;border-radius:50%;box-shadow:var(--customer-shadow);}
@@ -638,3 +638,51 @@ html:not(.dark) .shadow-2xl {
 .customer-information-document summary {cursor:pointer;font-weight:700;line-height:1.8;}
 .customer-information-document .customer-information-status {font-size:13px;border-inline-start:3px solid var(--primary);padding-inline-start:12px;}
 @media(max-width:400px) {.customer-information-document {padding:22px 18px;}.customer-information-header h1 {font-size:18px;}}
+
+/* Simple customer navigation and readable, unframed information pages. */
+.foodhub-customer .customer-app-header {display:grid;grid-template-columns:auto minmax(0,1fr) auto;padding:20px 20px 16px;}
+.foodhub-customer .customer-app-header>svg,.foodhub-customer .customer-app-header>button {flex-shrink:0;}
+.foodhub-customer .customer-location {height:36px;font-size:13px;}
+.customer-app-body {padding-bottom:calc(100px + env(safe-area-inset-bottom));}
+.customer-search {border-radius:8px;min-height:54px;background:var(--muted);margin-bottom:24px;}
+.customer-search input {font-size:16px;background:transparent!important;}
+.customer-directory-title {margin:8px 0 20px;}
+.customer-meal-grid {grid-template-columns:repeat(2,minmax(0,1fr));gap:24px 16px;}
+.foodhub-customer .customer-meal-name {font-size:15px;min-height:48px;}
+.foodhub-customer .customer-restaurant-tag {font-size:12px;height:32px;padding:4px 8px;}
+.customer-meal>small {font-size:12px;}
+.foodhub-customer .customer-add {height:40px;width:40px;}
+.customer-empty {padding:54px 16px;gap:16px;}
+.customer-empty>svg {width:56px;height:56px;color:var(--muted-foreground);}
+.customer-empty h2 {color:var(--foreground);font-weight:600;}
+.customer-bottom-nav {bottom:0;width:100%;max-width:680px;height:calc(80px + env(safe-area-inset-bottom));padding:8px 12px env(safe-area-inset-bottom);grid-template-columns:repeat(4,minmax(0,1fr));border-radius:0;border:0;border-top:1px solid var(--border);box-shadow:none;}
+.foodhub-customer .customer-nav-item {height:64px;border-radius:8px;gap:5px;}
+.customer-nav-item small {font-size:12px;color:inherit;font-weight:600;}
+.foodhub-customer .customer-nav-item[aria-current="page"] {background:var(--primary-soft);color:var(--foreground);}
+.customer-profile-top {align-items:center;}
+.customer-profile-top>div {min-width:0;}
+.customer-account-list {border:0;border-radius:0;}
+.customer-account-list>button,.customer-account-list>a {height:60px;font-size:15px;padding-inline:0;}
+.customer-profile-shortcuts {gap:12px;}
+.customer-profile-shortcuts button {height:66px;flex-direction:row;}
+.customer-cart-line {display:grid;grid-template-columns:minmax(0,1fr) auto;}
+.customer-cart-line>span {min-width:0;overflow-wrap:anywhere;}
+.customer-quantity {flex-shrink:0;gap:10px;}
+.customer-quantity button {width:40px;height:40px;}
+.foodhub-customer.customer-sheet {border-radius:8px 8px 0 0;}
+.customer-information-header {display:grid;grid-template-columns:auto minmax(0,1fr);gap:12px;padding-block:16px;}
+.customer-information-header h1 {padding:0;text-align:start;font-size:18px;}
+.customer-information-header button {border-radius:8px;box-shadow:none;}
+.customer-information-main {max-width:680px;padding:24px 20px;}
+.customer-information-brand {margin-bottom:24px;}
+.customer-information-brand a {font-size:18px;}
+.customer-information-document {padding:0;border-radius:0;}
+.customer-information-document h2 {font-size:18px;}
+.customer-information-document p {font-size:15px;line-height:1.9;}
+.customer-information-document summary {display:grid;grid-template-columns:minmax(0,1fr) auto;gap:16px;list-style:none;font-size:15px;font-weight:600;min-height:28px;align-items:center;}
+.customer-information-document summary::-webkit-details-marker {display:none;}
+.customer-information-document summary::after {content:'+';font-size:22px;color:var(--muted-foreground);}
+.customer-information-document details[open]>summary::after {content:'−';}
+.customer-information-document summary:focus-visible {outline:2px solid var(--ring);outline-offset:6px;}
+@media(min-width:768px) {.customer-meal-grid {grid-template-columns:repeat(3,minmax(0,1fr));}}
+@media(max-width:400px) {.customer-information-document {padding:0;}}
