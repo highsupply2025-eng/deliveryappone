@@ -19,3 +19,9 @@ test("missing or invalid endpoints never produce invented markers", () => {
   expect(orderMapPoints({ pickup_latitude: null, pickup_longitude: null, delivery_latitude: 91, delivery_longitude: 46 }, null)).toEqual([]);
   expect(orderMapPoints(null, { latitude: 0, longitude: 0 })[0]?.coordinates).toEqual([0, 0]);
 });
+import { orderMapStyle, FALLBACK_MAP_STYLE } from "../src/lib/order-map-points";
+test("uses Mapbox tiles with a public token, free map otherwise", () => {
+  expect(orderMapStyle(undefined)).toBe(FALLBACK_MAP_STYLE);
+  expect(orderMapStyle("sk.secret")).toBe(FALLBACK_MAP_STYLE);
+  expect(JSON.stringify(orderMapStyle("pk.abc"))).toContain("api.mapbox.com");
+});
