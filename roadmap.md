@@ -1,4 +1,5 @@
 # Mobile app completion
+- [ ] Simplify customer presentation and navigation using the latest references; preserve real content and verify main customer screens.
 - [x] Replace unsupported privacy claims with a preliminary FoodHub-specific notice in the light customer style; links, language, back and FAQ verified on mobile/desktop.
 - [x] Update help center with accurate guidance and no invented email, phone, WhatsApp, or simulated message submission.
 - [ ] Final privacy policy approval and help contact activation await owner-provided policy details, official email and phone/WhatsApp number.
