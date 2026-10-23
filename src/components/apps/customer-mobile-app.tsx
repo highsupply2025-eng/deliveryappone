@@ -9,9 +9,7 @@ import {
   Minus,
   ShoppingBag,
   Home,
-  Radar,
   User,
-  Layers,
   Receipt,
   Heart,
   HelpCircle,
@@ -555,17 +553,16 @@ export function CustomerMobileApp() {
         <nav className="customer-bottom-nav" aria-label="تنقل تطبيق العميل">
           {[
             { id: "home" as Tab, label: ar ? "الرئيسية" : "Home", icon: Home },
-            { id: "kitchens" as Tab, label: ar ? "الأقسام" : "Categories", icon: Layers },
-            { id: "radar" as Tab, label: ar ? "طلباتي" : "Orders", icon: Radar },
             { id: "cart" as Tab, label: ar ? "السلة" : "Cart", icon: ShoppingBag },
+            { id: "radar" as Tab, label: ar ? "طلباتي" : "Orders", icon: Receipt },
             { id: "profile" as Tab, label: ar ? "حسابي" : "Account", icon: User },
           ].map((n) => (
             <Button
               key={n.id}
               variant="ghost"
-              aria-current={tab === n.id && !selected ? "page" : undefined}
+              aria-current={(tab === n.id || (n.id === "home" && tab === "kitchens")) && !selected ? "page" : undefined}
               onClick={() => go(n.id)}
-              className={`customer-nav-item ${n.id === "radar" ? "customer-nav-orders" : ""}`}
+              className="customer-nav-item"
             >
               <span>
                 <n.icon />

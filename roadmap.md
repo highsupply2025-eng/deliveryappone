@@ -1,4 +1,5 @@
 # Mobile app completion
+- [x] Simplify customer presentation to four equal navigation items, readable meal tiles, single category selector and unframed help/privacy; verified address entry, empty cart/orders, account and FAQ on phone/desktop without overflow or runtime errors. Real catalog remains empty; no checkout submitted.
 - [x] Replace unsupported privacy claims with a preliminary FoodHub-specific notice in the light customer style; links, language, back and FAQ verified on mobile/desktop.
 - [x] Update help center with accurate guidance and no invented email, phone, WhatsApp, or simulated message submission.
 - [ ] Final privacy policy approval and help contact activation await owner-provided policy details, official email and phone/WhatsApp number.
