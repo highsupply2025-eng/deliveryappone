@@ -5,11 +5,14 @@ import { useRealtime } from "@/lib/realtime";
 import { LiveOrderMap } from "./live-order-map";
 
 const statuses: Record<string,string>={pending:"جديد",accepted:"مقبول",preparing:"قيد التحضير",ready:"جاهز للاستلام",on_the_way:"في الطريق",delivered:"تم التسليم",cancelled:"ملغي"};
-export function LiveTrackingList() {
+export function LiveTrackingList({ customerOnly = false }: { customerOnly?: boolean }) {
   const {user,loading} = useSession();
   useRealtime(["orders"],["live-tracking-orders"],"tracking-list");
-  const orders=useQuery({queryKey:["live-tracking-orders",user?.id],enabled:!!user,queryFn:async()=>{
-    const {data,error}=await supabase.from("orders").select("id,status,address,pickup_address").not("status","in","(delivered,cancelled)").order("created_at",{ascending:false}).limit(30);
+  const orders=useQuery({queryKey:["live-tracking-orders",user?.id,customerOnly],enabled:!!user,queryFn:async()=>{
+    if (!user) return [];
+    let query = supabase.from("orders").select("id,status,address,pickup_address").not("status","in","(delivered,cancelled)").order("created_at",{ascending:false}).limit(30);
+    if (customerOnly) query = query.eq("customer_id", user.id);
+    const {data,error}=await query;
     if(error)throw error; return data;
   }});
   if(loading||orders.isPending&&user) return <p className="p-4 text-muted-foreground">جارِ تحميل الطلبات…</p>;
