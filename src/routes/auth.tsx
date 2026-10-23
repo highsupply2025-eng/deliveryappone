@@ -1,9 +1,7 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useState } from "react";
-import { useQuery } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
-import { adminExists, bootstrapAdmin } from "@/lib/admin.functions";
 import { useI18n } from "@/lib/i18n";
 import { AppHeader } from "@/components/app-header";
 import { Button } from "@/components/ui/button";
@@ -38,10 +36,6 @@ function AuthPage() {
   const [password, setPassword] = useState("");
   const [emailBusy, setEmailBusy] = useState(false);
 
-  const { data: adminState, refetch } = useQuery({
-    queryKey: ["admin-exists"],
-    queryFn: () => adminExists(),
-  });
 
   const handleEmailSignIn = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -160,73 +154,6 @@ function AuthPage() {
         </div>
       </main>
 
-      {adminState && !adminState.exists ? (
-        <div className="mx-auto max-w-md px-4 pb-12">
-          <BootstrapCard onDone={() => void refetch()} />
-        </div>
-      ) : null}
-    </div>
-  );
-}
-
-function BootstrapCard({ onDone }: { onDone: () => void }) {
-  const { t } = useI18n();
-  const [form, setForm] = useState({ email: "", password: "", full_name: "" });
-  const [busy, setBusy] = useState(false);
-
-  const submit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setBusy(true);
-    try {
-      await bootstrapAdmin({ data: { ...form, phone: "" } });
-      toast.success(t("created"));
-      onDone();
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Error");
-    } finally {
-      setBusy(false);
-    }
-  };
-
-  return (
-    <div className="rounded-3xl border border-slate-800 bg-slate-900 p-6 shadow-xl space-y-3">
-      <div className="flex items-center gap-3">
-        <div className="flex size-10 items-center justify-center rounded-xl bg-purple-500/20 text-purple-400">
-          <ShieldCheck className="size-5" />
-        </div>
-        <div>
-          <h2 className="font-bold text-white text-sm">{t("setupAdmin")}</h2>
-          <p className="text-xs text-slate-400">{t("setupAdminHint")}</p>
-        </div>
-      </div>
-      <form onSubmit={submit} className="mt-4 space-y-3">
-        <Input
-          placeholder={t("fullName")}
-          required
-          value={form.full_name}
-          onChange={(e) => setForm({ ...form, full_name: e.target.value })}
-          className="bg-slate-950 border-slate-800 text-xs"
-        />
-        <Input
-          type="email"
-          placeholder={t("email")}
-          required
-          value={form.email}
-          onChange={(e) => setForm({ ...form, email: e.target.value })}
-          className="bg-slate-950 border-slate-800 text-xs font-mono"
-        />
-        <Input
-          type="password"
-          placeholder={t("password")}
-          required
-          value={form.password}
-          onChange={(e) => setForm({ ...form, password: e.target.value })}
-          className="bg-slate-950 border-slate-800 text-xs font-mono"
-        />
-        <Button type="submit" className="w-full bg-purple-600 hover:bg-purple-500 text-white font-bold" disabled={busy}>
-          {t("createAccount")}
-        </Button>
-      </form>
     </div>
   );
 }
