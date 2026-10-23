@@ -495,56 +495,61 @@ html:not(.dark) .shadow-2xl {
 
 /* Public website only: FoodHub branding, spacious editorial app presentation. */
 .foodhub-web {
-  --web-surface: oklch(0.15 0.018 50);
-  --web-raised: oklch(0.20 0.018 50);
-  --web-text: oklch(0.97 0.01 80);
-  --web-muted: oklch(0.73 0.015 80);
+  --web-surface: oklch(1 0 0);
+  --web-raised: oklch(0.97 0.003 215);
+  --web-text: oklch(0.23 0.012 215);
+  --web-muted: oklch(0.52 0.018 215);
+  --web-teal: oklch(0.5 0.085 215);
+  --web-on-dark: oklch(0.99 0 0);
   --web-gold: oklch(0.85 0.16 85);
   --web-dark: oklch(0.15 0.018 50);
-  --web-shadow: 0 24px 65px oklch(0.08 0.01 50 / 0.35);
+  --web-shadow: 0 12px 35px oklch(0.25 0.02 215 / 0.1);
+  --background: var(--web-surface); --foreground: var(--web-text); --accent: var(--web-raised); --accent-foreground: var(--web-text);
+  color-scheme: light;
   background: var(--web-surface); color: var(--web-text); overflow: clip;
 }
 .foodhub-web :is(h1,h2,h3) { font-family: var(--font-sans); letter-spacing: 0; }
 .web-container { width: min(1120px, calc(100% - 48px)); margin-inline: auto; }
 .foodhub-web .web-header { position: sticky; top: 0; z-index: 40; background: var(--web-surface) !important; color: var(--web-text) !important; border-bottom: 1px solid color-mix(in oklch,var(--web-text) 10%,transparent); box-shadow:none !important; padding-block: 19px; }
 .foodhub-web a { transition: opacity .2s; }
-.foodhub-web nav a:hover { color:var(--web-gold); }
+.foodhub-web nav a:hover { color:var(--web-teal); }
 .foodhub-web [dir="ltr"] > span:first-child { color:var(--web-text); }
 .foodhub-web .web-cta { background:var(--web-gold); color:var(--web-dark); border-radius:8px; height:44px; padding-inline:24px; font-weight:800; gap:12px; }
 .web-video { position:relative; height: min(60vh, 600px); min-height:320px; }
 .web-video video { width:100%;height:100%;object-fit:cover;object-position:center; }
-.web-video-caption { position:absolute; inset-inline:24px; bottom:20px; display:flex; align-items:center; justify-content:space-between; color:var(--web-text); }
+.web-video-caption { position:absolute; inset-inline:24px; bottom:20px; display:flex; align-items:center; justify-content:space-between; color:var(--web-on-dark); }
 .web-video-caption > span { display:flex;gap:8px;align-items:center;background:color-mix(in oklch,var(--web-dark) 75%,transparent);padding:8px 14px;border-radius:8px;font-size:12px; }
-.web-video-caption button { background:var(--web-dark);color:var(--web-text);border-radius:50%; }
+.web-video-caption button { background:var(--web-dark);color:var(--web-on-dark);border-radius:50%; }
 .web-intro { padding-top:64px; position:relative; overflow:hidden; }
 .web-eyebrow { font-size:13px;font-weight:700;color:var(--web-gold);margin-bottom:16px; }
 .web-intro h1 { font-family:var(--font-display);font-size:44px;font-weight:900;line-height:1.2;direction:ltr;margin-bottom:18px; }
 .web-intro h1 span { color:var(--web-gold); }
 .foodhub-web h2 { font-size:44px;line-height:1.5;font-weight:900; }
 .web-lead { color:var(--web-muted);max-width:480px;margin:18px auto 24px;font-size:15px;line-height:1.9; }
-.web-showcase { display:flex;justify-content:center;align-items:center;gap:70px;height:480px;margin-top:64px;position:relative; }
-.web-showcase::before { content:"";position:absolute;top:210px;width:170%;height:480px;border-radius:50% 50% 0 0;background:var(--web-raised);z-index:0; }
+.web-showcase { display:flex;justify-content:center;align-items:center;margin-top:40px;padding-bottom:56px;position:relative; }
 .web-showcase > * { position:relative; }
-.web-phone { width:246px;aspect-ratio:390 / 844;flex-shrink:0;border:7px solid var(--web-dark);border-radius:36px;overflow:hidden;background:var(--web-raised);position:relative;box-shadow:var(--web-shadow);outline:1px solid color-mix(in oklch,var(--web-text) 35%,transparent); }
+.web-phone { width:246px;aspect-ratio:390 / 844;flex-shrink:0;border:5px solid var(--web-raised);border-radius:20px;overflow:hidden;background:var(--web-surface);position:relative;box-shadow:var(--web-shadow);outline:1px solid color-mix(in oklch,var(--web-text) 12%,transparent); }
 .web-phone img { width:100%;height:100%;object-fit:cover;display:block; }
 .web-phone-notch { position:absolute;top:0;left:50%;transform:translateX(-50%);width:90px;height:18px;background:var(--web-dark);border-radius:0 0 12px 12px;z-index:1; }
 .web-callouts { display:flex;flex-direction:column;gap:80px;width:180px;text-align:start; }
 .web-callouts span { display:flex;align-items:center;gap:14px;font-size:14px;font-weight:700; }
 .web-callouts svg { width:30px;height:30px;color:var(--web-gold);flex-shrink:0; }
-.web-benefits { display:grid;grid-template-columns:1fr 1fr;gap:90px;align-items:center;padding-block:120px; }
+.web-benefits { padding-block:64px;border-top:1px solid var(--web-raised); }
+.web-benefit-copy { display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:32px; }
+.web-benefit-copy>h2 { grid-column:1 / -1;text-align:center; }
 .web-benefit-visual { display:flex;justify-content:center;position:relative;padding-block:36px;background:var(--web-raised);border-radius:50% 50% 0 0; }
 .web-benefit-visual .web-phone { transform:rotate(7deg); }
 .web-word { position:absolute;bottom:30px;inset-inline-start:0;font-size:50px;font-weight:900;color:var(--web-gold);transform:rotate(-12deg); }
 .web-benefit-copy h2 span,.web-faq h2 span { color:var(--web-gold); }
 .web-feature { display:flex;gap:18px;margin-block:28px; }
-.web-feature > svg { color:var(--web-gold);flex-shrink:0;margin-top:6px; }
+.web-feature > svg { color:var(--web-teal);flex-shrink:0;margin-top:6px; }
 .web-feature h3 { font-size:20px;font-weight:800;margin-bottom:8px; }
 .web-feature p { font-size:14px;line-height:1.9;color:var(--web-muted); }
 .web-together { background:var(--web-raised);text-align:center;padding-top:80px;overflow:hidden; }
 .web-together > div > svg { color:var(--web-gold); }
-.web-screen-gallery { display:flex;justify-content:center;align-items:flex-start;gap:36px;height:400px;margin-top:64px; }
-.web-screen-gallery .web-phone:first-child { transform:rotate(-9deg) translateY(55px); }
-.web-screen-gallery .web-phone:last-child { transform:rotate(9deg) translateY(55px); }
+.web-screen-gallery { display:flex;justify-content:center;align-items:flex-start;gap:36px;margin-top:40px;padding-bottom:56px; }
+.web-screen-gallery figure { min-width:0; }
+.web-screen-gallery figcaption { margin-top:18px;font-size:16px;font-weight:700; }
 .web-faq { display:grid;grid-template-columns:1fr 1.3fr;gap:90px;padding-block:110px; }
 .web-faq > div > span { margin-top:30px; }
 .web-faq-item { border-bottom:1px solid color-mix(in oklch,var(--web-text) 15%,transparent); }
@@ -566,17 +571,20 @@ html:not(.dark) .shadow-2xl {
   .web-intro h1 { font-size:34px; }
   .foodhub-web h2 { font-size:30px; }
   .web-lead { font-size:14px; }
-  .web-showcase { margin-top:42px;gap:12px;height:370px; }
-  .web-showcase .web-phone { width:180px;border-width:5px;border-radius:27px; }
+  .web-showcase { margin-top:32px;padding-bottom:36px; }
+  .web-showcase .web-phone { width:230px;border-radius:18px; }
   .web-callouts { width:65px;gap:50px; }
   .web-callouts span { flex-direction:column;text-align:center;font-size:10px;gap:8px; }
   .web-callouts svg { width:24px;height:24px; }
-  .web-benefits { grid-template-columns:1fr;gap:55px;padding-block:65px; }
+  .web-benefits { padding-block:40px; }
+  .web-benefit-copy { grid-template-columns:1fr;gap:8px; }
+  .web-feature { margin-block:16px; }
   .web-benefit-visual { max-width:360px;width:100%;margin:auto; }
   .web-benefit-visual .web-phone { width:210px; }
   .web-word { font-size:36px; }
-  .web-screen-gallery { gap:16px;height:310px;margin-top:40px; }
-  .web-screen-gallery .web-phone { width:170px;border-width:5px;border-radius:25px; }
+  .web-screen-gallery { gap:16px;margin-top:32px;padding-bottom:36px; }
+  .web-screen-gallery figure { flex:1;max-width:200px; }
+  .web-screen-gallery .web-phone { width:100%;border-width:3px;border-radius:12px; }
   .web-together { padding-top:55px; }
   .web-faq { grid-template-columns:1fr;gap:35px;padding-block:65px; }
   .web-faq > div > span { display:none; }
