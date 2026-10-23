@@ -28,7 +28,7 @@ export function CustomerDiscovery(p: Props) {
     { title: p.ar ? "خفيفة ولذيذة" : "Fresh and delicious", sub: p.ar ? "اكتشف خيارات الوجبات الصحية" : "Explore healthy meal options", category: "healthy" },
     { title: p.ar ? "خلّها حلوة" : "Something sweet", sub: p.ar ? "حلى وقهوة تكمل يومك" : "Desserts and coffee for your day", category: "sweets" },
   ];
-  const current = slides[slide] ?? slides[0];
+  const current = slides[slide] ?? { title: "FoodHub", sub: "", category: "all" };
   const restaurants = p.restaurants.filter(r => (p.category === "all" || r.category === p.category) && (!p.search || r.nameAr.includes(p.search) || r.nameEn.toLowerCase().includes(p.search.toLowerCase())));
   return <div className="customer-discovery">
     <div className="customer-search">
