@@ -48,8 +48,7 @@ export function CustomerMobileNav() {
     currentPath === "/orders" ||
     currentPath === "/profile" ||
     currentPath === "/store" ||
-    currentPath === "/faq" ||
-    currentPath === "/help";
+    currentPath === "/faq";
 
   if (!isCustomerRoute || currentPath === "/") {
     return null;

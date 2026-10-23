@@ -23,7 +23,7 @@ export function PrivacyPage() {
       <p>{ar ? "مؤسسة التموين العالي للتجارة" : "مؤسسة التموين العالي للتجارة"}</p>
       <p className="customer-information-status">{ar ? "هذا إشعار أولي قيد اعتماد المؤسسة. ستُضاف تفاصيل التواصل ومدد الاحتفاظ بالبيانات وإجراءات طلب حذفها بعد اعتمادها؛ لا يمثل هذا النص شهادة امتثال أو ضمانًا أمنيًا." : "This preliminary notice awaits the owner's approval. Contact details, retention periods and data-deletion procedures will be added once approved. This notice is not a compliance certification or security guarantee."}</p>
       <h2>{ar ? "نطاق هذا الإشعار" : "Scope"}</h2>
-      <p>{ar ? "يخص هذا الإشعار موقع FoodHub وتطبيقات العميل والمندوب والمطعم والإدارة. الصور المرجعية لا تمثل سياسة شركة أخرى مطبقة على FoodHub." : "This notice concerns the FoodHub website and customer, courier, restaurant and administration apps."}</p>
+      <p>{ar ? "يخص هذا الإشعار موقع FoodHub وتطبيقات العميل والمندوب والمطعم والإدارة." : "This notice concerns the FoodHub website and customer, courier, restaurant and administration apps."}</p>
       <h2>{ar ? "معلومات الحساب والطلب" : "Account and order information"}</h2>
       <p>{ar ? "عند استخدام الحساب تدخل معلومات تسجيل الدخول، ويمكنك إدخال الاسم ورقم الجوال في معلوماتك الشخصية. عند تقديم طلب تدخل عنوان التسليم وتفاصيل الطلب، وتشمل سجلاته الأصناف والكميات والأسعار وحالة التوصيل." : "Account use involves sign-in details. You can enter your name and phone number in your profile. Orders include a delivery address, items, quantities, prices and delivery status."}</p>
       <h2>{ar ? "الموقع وتتبع التوصيل" : "Location and delivery tracking"}</h2>

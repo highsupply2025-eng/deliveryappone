@@ -1,6 +1,7 @@
 # Mobile app completion
-- [ ] Replace unsupported privacy claims with a FoodHub-specific notice in the light customer style; final policy approval waits on owner-provided processing/retention details.
-- [ ] Update help center with accurate guidance and no invented email, phone, WhatsApp, or simulated message submission; contact details supplied later by owner.
+- [x] Replace unsupported privacy claims with a preliminary FoodHub-specific notice in the light customer style; links, language, back and FAQ verified on mobile/desktop.
+- [x] Update help center with accurate guidance and no invented email, phone, WhatsApp, or simulated message submission.
+- [ ] Final privacy policy approval and help contact activation await owner-provided policy details, official email and phone/WhatsApp number.
 - [x] Restyle customer home, category browsing, cart/account sheets and navigation from supplied Q screenshots using a scoped always-light theme. Mobile/desktop public empty states and dialogs verified without overflow or runtime errors.
 - [x] Replace customer sample restaurants, meals, profile, wallet, offers and simulated orders with stored catalog/profile data and persisted pending checkout. Verified initial unclaimed seeds hidden without deletion; 22 tests passed. Authenticated profile save/read-back and customer-only empty orders verified.
 - [ ] Verify new customer checkout with an actual registered restaurant and available menu; blocked: catalog currently contains only unclaimed initial seed restaurants. Publish customer changes for installed native apps when requested.
