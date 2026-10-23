@@ -10,35 +10,6 @@ const accountSchema = z.object({
   role: z.enum(["admin", "restaurant", "courier", "customer"]),
 });
 
-export const adminExists = createServerFn({ method: "GET" }).handler(async () => {
-  const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-  const { count } = await supabaseAdmin
-    .from("user_roles")
-    .select("id", { count: "exact", head: true })
-    .eq("role", "admin");
-  return { exists: (count ?? 0) > 0 };
-});
-
-export const bootstrapAdmin = createServerFn({ method: "POST" })
-  .inputValidator((d: unknown) => accountSchema.omit({ role: true }).parse(d))
-  .handler(async ({ data }) => {
-    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-    const { count } = await supabaseAdmin
-      .from("user_roles")
-      .select("id", { count: "exact", head: true })
-      .eq("role", "admin");
-    if ((count ?? 0) > 0) throw new Error("Admin already exists");
-
-    const { error } = await supabaseAdmin.auth.admin.createUser({
-      email: data.email,
-      password: data.password,
-      email_confirm: true,
-      user_metadata: { full_name: data.full_name, phone: data.phone, role: "admin" },
-    });
-    if (error) throw new Error(error.message);
-    return { ok: true };
-  });
-
 type AuthedContext = {
   userId: string;
   supabase: {
