@@ -14,15 +14,31 @@ const seedRestaurants = new Map([
 ]);
 
 export function customerCatalog(restaurants: CatalogRestaurant[], items: CatalogMeal[]) {
-  const realRestaurants = restaurants.filter(r => r.is_active && !(r.owner_id === null && seedRestaurants.get(r.id) === r.name_ar));
-  const ids = new Set(realRestaurants.map(r => r.id));
-  return { restaurants: realRestaurants, meals: items.filter(m => m.is_available && ids.has(m.restaurant_id)) };
+  const realRestaurants = restaurants.filter(
+    (r) => r.is_active && !(r.owner_id === null && seedRestaurants.get(r.id) === r.name_ar),
+  );
+  const ids = new Set(realRestaurants.map((r) => r.id));
+  return {
+    restaurants: realRestaurants,
+    meals: items.filter((m) => m.is_available && ids.has(m.restaurant_id)),
+  };
 }
 
 export function catalogCategories(meals: CatalogMeal[]) {
-  return [...new Set(meals.map(m => m.category_ar).filter(Boolean))];
+  return [...new Set(meals.map((m) => m.category_ar).filter(Boolean))];
 }
 
-export function validCatalogCart(lines: {id: string; restaurant_id: string; price: number}[], meals: CatalogMeal[]) {
-  return lines.every(l => meals.some(m => m.id === l.id && m.restaurant_id === l.restaurant_id && Number(m.price) === l.price && m.is_available));
+export function validCatalogCart(
+  lines: { id: string; restaurant_id: string; price: number }[],
+  meals: CatalogMeal[],
+) {
+  return lines.every((l) =>
+    meals.some(
+      (m) =>
+        m.id === l.id &&
+        m.restaurant_id === l.restaurant_id &&
+        Number(m.price) === l.price &&
+        m.is_available,
+    ),
+  );
 }

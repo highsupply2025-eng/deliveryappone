@@ -1,7 +1,28 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { MapPin, ChevronDown, ChevronRight, Plus, Minus, ShoppingBag, Home, Radar, User, Layers, Receipt, Heart, HelpCircle, Settings, ShieldCheck, LogOut, Globe, Store, UtensilsCrossed, X } from "lucide-react";
+import {
+  MapPin,
+  ChevronDown,
+  ChevronRight,
+  Plus,
+  Minus,
+  ShoppingBag,
+  Home,
+  Radar,
+  User,
+  Layers,
+  Receipt,
+  Heart,
+  HelpCircle,
+  Settings,
+  ShieldCheck,
+  LogOut,
+  Globe,
+  Store,
+  UtensilsCrossed,
+  X,
+} from "lucide-react";
 import * as Dialog from "@radix-ui/react-dialog";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
@@ -9,7 +30,13 @@ import { useCart } from "@/lib/cart";
 import { useI18n } from "@/lib/i18n";
 import { useSession } from "@/lib/session";
 import { useRealtime } from "@/lib/realtime";
-import { customerCatalog, catalogCategories, validCatalogCart, type CatalogMeal, type CatalogRestaurant } from "@/lib/customer-catalog";
+import {
+  customerCatalog,
+  catalogCategories,
+  validCatalogCart,
+  type CatalogMeal,
+  type CatalogRestaurant,
+} from "@/lib/customer-catalog";
 import { Button } from "@/components/ui/button";
 import { FoodHubLogo } from "@/components/food-hub-logo";
 import { CustomerDiscovery } from "./customer-discovery";
@@ -18,41 +45,711 @@ import { LiveTrackingList } from "./live-tracking-list";
 type Tab = "home" | "kitchens" | "cart" | "radar" | "profile";
 type Sheet = "location" | "login" | "info" | "settings" | "favorites" | null;
 export function CustomerMobileApp() {
-  const {lang,setLang} = useI18n(); const ar=lang==="ar"; const {user}=useSession(); const cart=useCart(); const qc=useQueryClient();
-  const [tab,setTab]=useState<Tab>("home"); const [sheet,setSheet]=useState<Sheet>(null); const [restaurantId,setRestaurantId]=useState<string|null>(null); const [meal,setMeal]=useState<CatalogMeal|null>(null); const [qty,setQty]=useState(1);
-  const [search,setSearch]=useState(""); const [category,setCategory]=useState("all"); const [address,setAddress]=useState(""); const [phone,setPhone]=useState(""); const [notes,setNotes]=useState(""); const [name,setName]=useState(""); const [email,setEmail]=useState(""); const [password,setPassword]=useState(""); const [busy,setBusy]=useState(false);
-  useEffect(()=>{if(!localStorage.getItem("lang"))setLang("ar");},[setLang]);
-  useRealtime(["restaurants","menu_items"],["customer-catalog"],"customer-catalog");
-  const catalog=useQuery({queryKey:["customer-catalog"],queryFn:async()=>{const [rs,ms]=await Promise.all([supabase.from("restaurants").select("*").eq("is_active",true).order("created_at",{ascending:false}),supabase.from("menu_items").select("*").eq("is_available",true).order("created_at",{ascending:false})]);if(rs.error)throw rs.error;if(ms.error)throw ms.error;return customerCatalog(rs.data??[],ms.data??[]);}});
-  const profile=useQuery({queryKey:["customer-profile",user?.id],enabled:!!user,queryFn:async()=>{if(!user)return null;const {data,error}=await supabase.from("profiles").select("full_name,phone").eq("id",user.id).maybeSingle();if(error)throw error;return data;}});
-  useEffect(()=>{setName(profile.data?.full_name??"");setPhone(profile.data?.phone??"");},[profile.data]);
-  const restaurants=catalog.data?.restaurants??[]; const meals=catalog.data?.meals??[]; const categories=useMemo(()=>catalogCategories(meals),[meals]);
-  const selected=restaurants.find(r=>r.id===restaurantId); const cartRestaurant=restaurants.find(r=>r.id===cart.restaurantId);
-  const cleanCart=validCatalogCart(cart.lines,meals); const lines=cart.lines.filter(l=>meals.some(m=>m.id===l.id&&m.restaurant_id===l.restaurant_id&&Number(m.price)===l.price));
-  const filtered=meals.filter(m=>(category==="all"||m.category_ar===category)&&(!search||`${m.name_ar} ${m.name_en} ${restaurants.find(r=>r.id===m.restaurant_id)?.name_ar??""}`.toLowerCase().includes(search.toLowerCase())));
-  const go=(t:Tab)=>{setTab(t);setRestaurantId(null);setMeal(null);};
-  const add=(m:CatalogMeal,n=1)=>{cart.add({id:m.id,restaurant_id:m.restaurant_id,name_ar:m.name_ar,name_en:m.name_en,price:Number(m.price)});if(n>1)cart.setQty(m.id,(cart.lines.find(l=>l.id===m.id)?.quantity??0)+n);toast.success(ar?"أُضيفت الوجبة للسلة":"Added to cart");};
-  const total=lines.reduce((n,l)=>n+l.price*l.quantity,0)+Number(cartRestaurant?.delivery_fee??0);
-  const placeOrder=async(e:React.FormEvent)=>{e.preventDefault();if(!user){setSheet("login");return;}if(!cartRestaurant||!lines.length||!cleanCart){toast.error("تغيّرت الوجبات المتاحة؛ حدّث السلة");return;}if(cart.subtotal<Number(cartRestaurant.min_order)){toast.error(`الحد الأدنى للطلب ${cartRestaurant.min_order} ر.س`);return;}setBusy(true);try{const fresh=await catalog.refetch();if(fresh.error||!fresh.data||!validCatalogCart(cart.lines,fresh.data.meals))throw new Error("تغيّرت قائمة الطعام؛ راجع السلة");const freshRestaurant=fresh.data.restaurants.find(r=>r.id===cartRestaurant.id);if(!freshRestaurant||Number(freshRestaurant.delivery_fee)!==Number(cartRestaurant.delivery_fee))throw new Error("تغيّرت رسوم التوصيل؛ راجع السلة");const {data:o,error}=await supabase.from("orders").insert({customer_id:user.id,restaurant_id:cartRestaurant.id,address:address.trim(),phone:phone.trim(),notes:notes.trim()||null,subtotal:cart.subtotal,delivery_fee:Number(cartRestaurant.delivery_fee),total,status:"pending"}).select("id").single();if(error)throw error;const {error:ie}=await supabase.from("order_items").insert(lines.map(l=>({order_id:o.id,menu_item_id:l.id,name_ar:l.name_ar,name_en:l.name_en,price:l.price,quantity:l.quantity})));if(ie){await supabase.from("orders").update({status:"cancelled"}).eq("id",o.id);throw ie;}cart.clear();qc.invalidateQueries({queryKey:["live-tracking-orders"]});go("radar");toast.success("تم إرسال الطلب بانتظار قبول المطعم");}catch(e){toast.error(e instanceof Error?e.message:"تعذر إرسال الطلب");}finally{setBusy(false);}};
-  const login=async(e:React.FormEvent)=>{e.preventDefault();setBusy(true);const {error}=await supabase.auth.signInWithPassword({email:email.trim(),password});setBusy(false);if(error){toast.error("تعذر تسجيل الدخول؛ تحقق من بياناتك");return;}setPassword("");setSheet(null);};
-  const save=async(e:React.FormEvent)=>{e.preventDefault();if(!user)return;setBusy(true);const {error}=await supabase.from("profiles").update({full_name:name.trim(),phone:phone.trim()||null}).eq("id",user.id);setBusy(false);if(error){toast.error("تعذر حفظ المعلومات");return;}await qc.invalidateQueries({queryKey:["customer-profile",user.id]});setSheet(null);toast.success("تم حفظ المعلومات");};
-  return <div className="foodhub-customer" dir={ar?"rtl":"ltr"}><div className="customer-app-shell">
-    <header className="customer-app-header"><FoodHubLogo size={40} showText={false}/><div className="customer-header-brand"><strong>FOODHUB</strong><Button variant="ghost" className="customer-location" onClick={()=>setSheet("location")}><MapPin/><span>{address|| (ar?"تحديد عنوان التوصيل":"Delivery address")}</span><ChevronDown/></Button></div><Button variant="outline" size="icon" aria-label="اللغة" onClick={()=>setLang(ar?"en":"ar")}><Globe/></Button></header>
-    <main className="customer-app-body no-scrollbar" key={`${tab}-${restaurantId}`}>
-      {(tab==="home"||tab==="kitchens")&&!selected&&<CustomerDiscovery ar={ar} categories={categories} category={category} onCategory={setCategory} search={search} onSearch={setSearch} meals={filtered} restaurants={restaurants} onRestaurant={(r:CatalogRestaurant)=>setRestaurantId(r.id)} onMeal={m=>{setMeal(m);setQty(1);}} onAdd={add} onBrowse={()=>go("kitchens")} directory={tab==="kitchens"} loading={catalog.isPending} error={catalog.isError} onRetry={()=>void catalog.refetch()}/>}
-      {selected&&<div className="customer-page"><Button variant="ghost" onClick={()=>setRestaurantId(null)}><ChevronRight/>رجوع</Button>{selected.image_url&&<img className="customer-restaurant-cover" src={selected.image_url} alt={selected.name_ar}/>}<h1>{ar?selected.name_ar:selected.name_en}</h1><p>{selected.cuisine_ar}</p><div className="customer-stats"><span>{selected.eta_minutes} دقيقة تحضير</span><span>{selected.delivery_fee} ر.س توصيل</span><span>حد أدنى {selected.min_order} ر.س</span></div><h2>قائمة الطعام</h2>{meals.filter(m=>m.restaurant_id===selected.id).map(m=><div className="customer-menu-row" key={m.id}><Button variant="ghost" onClick={()=>{setMeal(m);setQty(1);}}>{m.image_url?<img src={m.image_url} alt={m.name_ar}/>:<UtensilsCrossed/>}<span><strong>{m.name_ar}</strong><small>{m.description_ar}</small><b>{m.price} ر.س</b></span></Button><Button size="icon" aria-label={`إضافة ${m.name_ar}`} onClick={()=>add(m)}><Plus/></Button></div>)}{!meals.some(m=>m.restaurant_id===selected.id)&&<p className="customer-empty">لا توجد وجبات متاحة لهذا المطعم</p>}</div>}
-      {tab==="cart"&&<div className="customer-page"><h1>{ar?"السلة":"Cart"}</h1>{catalog.isPending?<p>جارِ مراجعة السلة…</p>:!lines.length?<div className="customer-empty"><ShoppingBag/><h2>{ar?"السلة فارغة":"Your cart is empty"}</h2><Button onClick={()=>{if(!cleanCart)cart.clear();go("home");}}>تصفح الوجبات</Button></div>:<><h2>{cartRestaurant?.name_ar}</h2>{!cleanCart&&<div role="alert"><p>تحتوي السلة على أصناف لم تعد متاحة</p><Button variant="outline" onClick={()=>cart.lines.filter(l=>!lines.includes(l)).forEach(l=>cart.remove(l.id))}>إزالة الأصناف غير المتاحة</Button></div>}{lines.map(l=><div className="customer-cart-line" key={l.id}><span><strong>{l.name_ar}</strong><small>{(l.price*l.quantity).toFixed(2)} ر.س</small></span><div className="customer-quantity"><Button variant="outline" size="icon" aria-label={`تقليل ${l.name_ar}`} onClick={()=>cart.setQty(l.id,l.quantity-1)}><Minus/></Button><b>{l.quantity}</b><Button variant="outline" size="icon" aria-label={`زيادة ${l.name_ar}`} onClick={()=>cart.setQty(l.id,l.quantity+1)}><Plus/></Button></div></div>)}<form className="customer-form" onSubmit={placeOrder}><label>عنوان التوصيل<input required value={address} onChange={e=>setAddress(e.target.value)} placeholder="الحي، الشارع، رقم المبنى"/></label><label>رقم الجوال<input required type="tel" value={phone} onChange={e=>setPhone(e.target.value)}/></label><label>ملاحظات الطلب<textarea value={notes} onChange={e=>setNotes(e.target.value)}/></label><p>الدفع عند الاستلام</p><dl className="customer-bill"><div><dt>قيمة الوجبات</dt><dd>{cart.subtotal.toFixed(2)} ر.س</dd></div><div><dt>رسوم التوصيل</dt><dd>{Number(cartRestaurant?.delivery_fee??0).toFixed(2)} ر.س</dd></div><div><dt>الإجمالي</dt><dd>{total.toFixed(2)} ر.س</dd></div></dl><Button disabled={busy||!cleanCart} type="submit">{busy?"جارِ إرسال الطلب…":user?"تأكيد الطلب":"تسجيل الدخول لإتمام الطلب"}</Button></form></>}</div>}
-      {tab==="radar"&&<div className="customer-page"><h1>{ar?"طلباتي":"My orders"}</h1>{!user?<div className="customer-empty"><Receipt/><h2>سجّل الدخول لمتابعة طلباتك</h2><Button onClick={()=>setSheet("login")}>تسجيل الدخول</Button></div>:<LiveTrackingList customerOnly/>}</div>}
-      {tab==="profile"&&<div className="customer-page customer-profile"><div className="customer-profile-top"><span className="customer-avatar"><User/></span><div><h1>{user?(profile.data?.full_name||"حسابي"):(ar?"أهلًا فيك في FoodHub":"Welcome to FoodHub")}</h1>{user?<p>{profile.data?.phone||user.email}</p>:<p>سجّل دخولك لمتابعة طلباتك</p>}</div></div>{profile.isError&&<p role="alert">تعذر تحميل معلومات الحساب</p>}{!user&&<Button className="customer-wide" onClick={()=>setSheet("login")}>سجّل دخولك</Button>}{user&&<div className="customer-profile-shortcuts"><Button variant="outline" onClick={()=>go("radar")}><Receipt/>طلباتك</Button><Button variant="outline" onClick={()=>setSheet("favorites")}><Heart/>مفضلتك</Button></div>}<div className="customer-account-list">{user&&<Button variant="ghost" onClick={()=>setSheet("info")}><User/>معلوماتك<ChevronRight/></Button>}<Button variant="ghost" onClick={()=>setSheet("settings")}><Settings/>الإعدادات<ChevronRight/></Button><Button variant="ghost" asChild><Link to="/help"><HelpCircle/>تحتاج مساعدة؟<ChevronRight/></Link></Button><Button variant="ghost" asChild><Link to="/privacy"><ShieldCheck/>سياسة الخصوصية<ChevronRight/></Link></Button>{user&&<Button variant="ghost" className="text-destructive" onClick={async()=>{await supabase.auth.signOut();qc.removeQueries({queryKey:["customer-profile"]});}}><LogOut/>تسجيل الخروج</Button>}</div></div>}
-    </main>
-    <nav className="customer-bottom-nav" aria-label="تنقل تطبيق العميل">{[{id:"home" as Tab,label:ar?"الرئيسية":"Home",icon:Home},{id:"kitchens" as Tab,label:ar?"الأقسام":"Categories",icon:Layers},{id:"radar" as Tab,label:ar?"طلباتي":"Orders",icon:Radar},{id:"cart" as Tab,label:ar?"السلة":"Cart",icon:ShoppingBag},{id:"profile" as Tab,label:ar?"حسابي":"Account",icon:User}].map(n=><Button key={n.id} variant="ghost" aria-current={tab===n.id&&!selected?"page":undefined} onClick={()=>go(n.id)} className={`customer-nav-item ${n.id==="radar"?"customer-nav-orders":""}`}><span><n.icon/>{n.id==="cart"&&lines.length>0&&<b>{lines.reduce((v,l)=>v+l.quantity,0)}</b>}</span><small>{n.label}</small></Button>)}</nav>
-    <Dialog.Root open={!!sheet||!!meal} onOpenChange={v=>{if(!v){setSheet(null);setMeal(null);}}}><Dialog.Portal><Dialog.Overlay className="customer-sheet-overlay"/><Dialog.Content className="foodhub-customer customer-sheet" dir={ar?"rtl":"ltr"} aria-describedby={undefined}><span className="customer-sheet-handle"/><Dialog.Close asChild><Button variant="ghost" size="icon" aria-label="إغلاق" className="customer-sheet-close"><X/></Button></Dialog.Close><Dialog.Title className="customer-sheet-title">{meal?meal.name_ar:({location:"عنوان التوصيل",login:"تسجيل الدخول",info:"معلوماتك",settings:"الإعدادات",favorites:"المفضلة"}[sheet??"location"])}</Dialog.Title>
-    {meal&&<>{meal.image_url&&<img className="customer-sheet-food" src={meal.image_url} alt={meal.name_ar}/>}<p>{meal.description_ar}</p><strong>{Number(meal.price).toFixed(2)} ر.س</strong><div className="customer-quantity"><Button variant="outline" size="icon" disabled={qty===1} onClick={()=>setQty(q=>q-1)} aria-label="تقليل الكمية"><Minus/></Button><b>{qty}</b><Button variant="outline" size="icon" onClick={()=>setQty(q=>q+1)} aria-label="زيادة الكمية"><Plus/></Button></div><Button onClick={()=>{add(meal,qty);setMeal(null);}}>إضافة للسلة · {(Number(meal.price)*qty).toFixed(2)} ر.س</Button></>}
-    {sheet==="location"&&<form className="customer-form" onSubmit={e=>{e.preventDefault();setSheet(null);}}><label>العنوان<input required value={address} onChange={e=>setAddress(e.target.value)} placeholder="الحي، الشارع، رقم المبنى"/></label><Button type="submit">تأكيد العنوان</Button></form>}
-    {sheet==="login"&&<form className="customer-form" onSubmit={login}><label>البريد الإلكتروني<input required type="email" value={email} onChange={e=>setEmail(e.target.value)} autoComplete="email"/></label><label>كلمة المرور<input required type="password" value={password} onChange={e=>setPassword(e.target.value)} autoComplete="current-password"/></label><Button disabled={busy} type="submit">{busy?"جارِ الدخول…":"تسجيل الدخول"}</Button></form>}
-    {sheet==="info"&&<form className="customer-form" onSubmit={save}><label>الاسم<input required maxLength={30} value={name} onChange={e=>setName(e.target.value)}/></label><label>رقم الجوال<input type="tel" value={phone} onChange={e=>setPhone(e.target.value)}/></label><label>البريد الإلكتروني<input readOnly value={user?.email??""}/></label><Button disabled={busy} type="submit">حفظ التغييرات</Button></form>}
-    {sheet==="settings"&&<div className="customer-setting-row"><Globe/><strong>اللغة</strong><Button variant="outline" onClick={()=>setLang(ar?"en":"ar")}>{ar?"English":"العربية"}</Button></div>}
-    {sheet==="favorites"&&<div className="customer-empty"><Heart/><p>لا توجد وجبات مفضلة محفوظة</p><Button onClick={()=>{setSheet(null);go("home");}}>تصفح الوجبات</Button></div>}
-    </Dialog.Content></Dialog.Portal></Dialog.Root>
-  </div></div>;
+  const { lang, setLang } = useI18n();
+  const ar = lang === "ar";
+  const { user } = useSession();
+  const cart = useCart();
+  const qc = useQueryClient();
+  const [tab, setTab] = useState<Tab>("home");
+  const [sheet, setSheet] = useState<Sheet>(null);
+  const [restaurantId, setRestaurantId] = useState<string | null>(null);
+  const [meal, setMeal] = useState<CatalogMeal | null>(null);
+  const [qty, setQty] = useState(1);
+  const [search, setSearch] = useState("");
+  const [category, setCategory] = useState("all");
+  const [address, setAddress] = useState("");
+  const [phone, setPhone] = useState("");
+  const [notes, setNotes] = useState("");
+  const [name, setName] = useState("");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [busy, setBusy] = useState(false);
+  useEffect(() => {
+    if (!localStorage.getItem("lang")) setLang("ar");
+  }, [setLang]);
+  useRealtime(["restaurants", "menu_items"], ["customer-catalog"], "customer-catalog");
+  const catalog = useQuery({
+    queryKey: ["customer-catalog"],
+    queryFn: async () => {
+      const [rs, ms] = await Promise.all([
+        supabase
+          .from("restaurants")
+          .select("*")
+          .eq("is_active", true)
+          .order("created_at", { ascending: false }),
+        supabase
+          .from("menu_items")
+          .select("*")
+          .eq("is_available", true)
+          .order("created_at", { ascending: false }),
+      ]);
+      if (rs.error) throw rs.error;
+      if (ms.error) throw ms.error;
+      return customerCatalog(rs.data ?? [], ms.data ?? []);
+    },
+  });
+  const profile = useQuery({
+    queryKey: ["customer-profile", user?.id],
+    enabled: !!user,
+    queryFn: async () => {
+      if (!user) return null;
+      const { data, error } = await supabase
+        .from("profiles")
+        .select("full_name,phone")
+        .eq("id", user.id)
+        .maybeSingle();
+      if (error) throw error;
+      return data;
+    },
+  });
+  useEffect(() => {
+    setName(profile.data?.full_name ?? "");
+    setPhone(profile.data?.phone ?? "");
+  }, [profile.data]);
+  const restaurants = catalog.data?.restaurants ?? [];
+  const meals = catalog.data?.meals ?? [];
+  const categories = useMemo(() => catalogCategories(meals), [meals]);
+  const selected = restaurants.find((r) => r.id === restaurantId);
+  const cartRestaurant = restaurants.find((r) => r.id === cart.restaurantId);
+  const cleanCart = validCatalogCart(cart.lines, meals);
+  const lines = cart.lines.filter((l) =>
+    meals.some(
+      (m) => m.id === l.id && m.restaurant_id === l.restaurant_id && Number(m.price) === l.price,
+    ),
+  );
+  const filtered = meals.filter(
+    (m) =>
+      (category === "all" || m.category_ar === category) &&
+      (!search ||
+        `${m.name_ar} ${m.name_en} ${restaurants.find((r) => r.id === m.restaurant_id)?.name_ar ?? ""}`
+          .toLowerCase()
+          .includes(search.toLowerCase())),
+  );
+  const go = (t: Tab) => {
+    setTab(t);
+    setRestaurantId(null);
+    setMeal(null);
+  };
+  const add = (m: CatalogMeal, n = 1) => {
+    cart.add({
+      id: m.id,
+      restaurant_id: m.restaurant_id,
+      name_ar: m.name_ar,
+      name_en: m.name_en,
+      price: Number(m.price),
+    });
+    if (n > 1) cart.setQty(m.id, (cart.lines.find((l) => l.id === m.id)?.quantity ?? 0) + n);
+    toast.success(ar ? "أُضيفت الوجبة للسلة" : "Added to cart");
+  };
+  const total =
+    lines.reduce((n, l) => n + l.price * l.quantity, 0) + Number(cartRestaurant?.delivery_fee ?? 0);
+  const placeOrder = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!user) {
+      setSheet("login");
+      return;
+    }
+    if (!cartRestaurant || !lines.length || !cleanCart) {
+      toast.error("تغيّرت الوجبات المتاحة؛ حدّث السلة");
+      return;
+    }
+    if (cart.subtotal < Number(cartRestaurant.min_order)) {
+      toast.error(`الحد الأدنى للطلب ${cartRestaurant.min_order} ر.س`);
+      return;
+    }
+    setBusy(true);
+    try {
+      const fresh = await catalog.refetch();
+      if (fresh.error || !fresh.data || !validCatalogCart(cart.lines, fresh.data.meals))
+        throw new Error("تغيّرت قائمة الطعام؛ راجع السلة");
+      const freshRestaurant = fresh.data.restaurants.find((r) => r.id === cartRestaurant.id);
+      if (
+        !freshRestaurant ||
+        Number(freshRestaurant.delivery_fee) !== Number(cartRestaurant.delivery_fee)
+      )
+        throw new Error("تغيّرت رسوم التوصيل؛ راجع السلة");
+      const { data: o, error } = await supabase
+        .from("orders")
+        .insert({
+          customer_id: user.id,
+          restaurant_id: cartRestaurant.id,
+          address: address.trim(),
+          phone: phone.trim(),
+          notes: notes.trim() || null,
+          subtotal: cart.subtotal,
+          delivery_fee: Number(cartRestaurant.delivery_fee),
+          total,
+          status: "pending",
+        })
+        .select("id")
+        .single();
+      if (error) throw error;
+      const { error: ie } = await supabase
+        .from("order_items")
+        .insert(
+          lines.map((l) => ({
+            order_id: o.id,
+            menu_item_id: l.id,
+            name_ar: l.name_ar,
+            name_en: l.name_en,
+            price: l.price,
+            quantity: l.quantity,
+          })),
+        );
+      if (ie) {
+        await supabase.from("orders").update({ status: "cancelled" }).eq("id", o.id);
+        throw ie;
+      }
+      cart.clear();
+      qc.invalidateQueries({ queryKey: ["live-tracking-orders"] });
+      go("radar");
+      toast.success("تم إرسال الطلب بانتظار قبول المطعم");
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "تعذر إرسال الطلب");
+    } finally {
+      setBusy(false);
+    }
+  };
+  const login = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setBusy(true);
+    const { error } = await supabase.auth.signInWithPassword({ email: email.trim(), password });
+    setBusy(false);
+    if (error) {
+      toast.error("تعذر تسجيل الدخول؛ تحقق من بياناتك");
+      return;
+    }
+    setPassword("");
+    setSheet(null);
+  };
+  const save = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!user) return;
+    setBusy(true);
+    const { error } = await supabase
+      .from("profiles")
+      .update({ full_name: name.trim(), phone: phone.trim() || null })
+      .eq("id", user.id);
+    setBusy(false);
+    if (error) {
+      toast.error("تعذر حفظ المعلومات");
+      return;
+    }
+    await qc.invalidateQueries({ queryKey: ["customer-profile", user.id] });
+    setSheet(null);
+    toast.success("تم حفظ المعلومات");
+  };
+  return (
+    <div className="foodhub-customer" dir={ar ? "rtl" : "ltr"}>
+      <div className="customer-app-shell">
+        <header className="customer-app-header">
+          <FoodHubLogo size={40} showText={false} />
+          <div className="customer-header-brand">
+            <strong>FOODHUB</strong>
+            <Button
+              variant="ghost"
+              className="customer-location"
+              onClick={() => setSheet("location")}
+            >
+              <MapPin />
+              <span>{address || (ar ? "تحديد عنوان التوصيل" : "Delivery address")}</span>
+              <ChevronDown />
+            </Button>
+          </div>
+          <Button
+            variant="outline"
+            size="icon"
+            aria-label="اللغة"
+            onClick={() => setLang(ar ? "en" : "ar")}
+          >
+            <Globe />
+          </Button>
+        </header>
+        <main className="customer-app-body no-scrollbar" key={`${tab}-${restaurantId}`}>
+          {(tab === "home" || tab === "kitchens") && !selected && (
+            <CustomerDiscovery
+              ar={ar}
+              categories={categories}
+              category={category}
+              onCategory={setCategory}
+              search={search}
+              onSearch={setSearch}
+              meals={filtered}
+              restaurants={restaurants}
+              onRestaurant={(r: CatalogRestaurant) => setRestaurantId(r.id)}
+              onMeal={(m) => {
+                setMeal(m);
+                setQty(1);
+              }}
+              onAdd={add}
+              onBrowse={() => go("kitchens")}
+              directory={tab === "kitchens"}
+              loading={catalog.isPending}
+              error={catalog.isError}
+              onRetry={() => void catalog.refetch()}
+            />
+          )}
+          {selected && (
+            <div className="customer-page">
+              <Button variant="ghost" onClick={() => setRestaurantId(null)}>
+                <ChevronRight />
+                رجوع
+              </Button>
+              {selected.image_url && (
+                <img
+                  className="customer-restaurant-cover"
+                  src={selected.image_url}
+                  alt={selected.name_ar}
+                />
+              )}
+              <h1>{ar ? selected.name_ar : selected.name_en}</h1>
+              <p>{selected.cuisine_ar}</p>
+              <div className="customer-stats">
+                <span>{selected.eta_minutes} دقيقة تحضير</span>
+                <span>{selected.delivery_fee} ر.س توصيل</span>
+                <span>حد أدنى {selected.min_order} ر.س</span>
+              </div>
+              <h2>قائمة الطعام</h2>
+              {meals
+                .filter((m) => m.restaurant_id === selected.id)
+                .map((m) => (
+                  <div className="customer-menu-row" key={m.id}>
+                    <Button
+                      variant="ghost"
+                      onClick={() => {
+                        setMeal(m);
+                        setQty(1);
+                      }}
+                    >
+                      {m.image_url ? (
+                        <img src={m.image_url} alt={m.name_ar} />
+                      ) : (
+                        <UtensilsCrossed />
+                      )}
+                      <span>
+                        <strong>{m.name_ar}</strong>
+                        <small>{m.description_ar}</small>
+                        <b>{m.price} ر.س</b>
+                      </span>
+                    </Button>
+                    <Button size="icon" aria-label={`إضافة ${m.name_ar}`} onClick={() => add(m)}>
+                      <Plus />
+                    </Button>
+                  </div>
+                ))}
+              {!meals.some((m) => m.restaurant_id === selected.id) && (
+                <p className="customer-empty">لا توجد وجبات متاحة لهذا المطعم</p>
+              )}
+            </div>
+          )}
+          {tab === "cart" && (
+            <div className="customer-page">
+              <h1>{ar ? "السلة" : "Cart"}</h1>
+              {catalog.isPending ? (
+                <p>جارِ مراجعة السلة…</p>
+              ) : !lines.length ? (
+                <div className="customer-empty">
+                  <ShoppingBag />
+                  <h2>{ar ? "السلة فارغة" : "Your cart is empty"}</h2>
+                  <Button
+                    onClick={() => {
+                      if (!cleanCart) cart.clear();
+                      go("home");
+                    }}
+                  >
+                    تصفح الوجبات
+                  </Button>
+                </div>
+              ) : (
+                <>
+                  <h2>{cartRestaurant?.name_ar}</h2>
+                  {!cleanCart && (
+                    <div role="alert">
+                      <p>تحتوي السلة على أصناف لم تعد متاحة</p>
+                      <Button
+                        variant="outline"
+                        onClick={() =>
+                          cart.lines
+                            .filter((l) => !lines.includes(l))
+                            .forEach((l) => cart.remove(l.id))
+                        }
+                      >
+                        إزالة الأصناف غير المتاحة
+                      </Button>
+                    </div>
+                  )}
+                  {lines.map((l) => (
+                    <div className="customer-cart-line" key={l.id}>
+                      <span>
+                        <strong>{l.name_ar}</strong>
+                        <small>{(l.price * l.quantity).toFixed(2)} ر.س</small>
+                      </span>
+                      <div className="customer-quantity">
+                        <Button
+                          variant="outline"
+                          size="icon"
+                          aria-label={`تقليل ${l.name_ar}`}
+                          onClick={() => cart.setQty(l.id, l.quantity - 1)}
+                        >
+                          <Minus />
+                        </Button>
+                        <b>{l.quantity}</b>
+                        <Button
+                          variant="outline"
+                          size="icon"
+                          aria-label={`زيادة ${l.name_ar}`}
+                          onClick={() => cart.setQty(l.id, l.quantity + 1)}
+                        >
+                          <Plus />
+                        </Button>
+                      </div>
+                    </div>
+                  ))}
+                  <form className="customer-form" onSubmit={placeOrder}>
+                    <label>
+                      عنوان التوصيل
+                      <input
+                        required
+                        value={address}
+                        onChange={(e) => setAddress(e.target.value)}
+                        placeholder="الحي، الشارع، رقم المبنى"
+                      />
+                    </label>
+                    <label>
+                      رقم الجوال
+                      <input
+                        required
+                        type="tel"
+                        value={phone}
+                        onChange={(e) => setPhone(e.target.value)}
+                      />
+                    </label>
+                    <label>
+                      ملاحظات الطلب
+                      <textarea value={notes} onChange={(e) => setNotes(e.target.value)} />
+                    </label>
+                    <p>الدفع عند الاستلام</p>
+                    <dl className="customer-bill">
+                      <div>
+                        <dt>قيمة الوجبات</dt>
+                        <dd>{cart.subtotal.toFixed(2)} ر.س</dd>
+                      </div>
+                      <div>
+                        <dt>رسوم التوصيل</dt>
+                        <dd>{Number(cartRestaurant?.delivery_fee ?? 0).toFixed(2)} ر.س</dd>
+                      </div>
+                      <div>
+                        <dt>الإجمالي</dt>
+                        <dd>{total.toFixed(2)} ر.س</dd>
+                      </div>
+                    </dl>
+                    <Button disabled={busy || !cleanCart} type="submit">
+                      {busy
+                        ? "جارِ إرسال الطلب…"
+                        : user
+                          ? "تأكيد الطلب"
+                          : "تسجيل الدخول لإتمام الطلب"}
+                    </Button>
+                  </form>
+                </>
+              )}
+            </div>
+          )}
+          {tab === "radar" && (
+            <div className="customer-page">
+              <h1>{ar ? "طلباتي" : "My orders"}</h1>
+              {!user ? (
+                <div className="customer-empty">
+                  <Receipt />
+                  <h2>سجّل الدخول لمتابعة طلباتك</h2>
+                  <Button onClick={() => setSheet("login")}>تسجيل الدخول</Button>
+                </div>
+              ) : (
+                <LiveTrackingList customerOnly />
+              )}
+            </div>
+          )}
+          {tab === "profile" && (
+            <div className="customer-page customer-profile">
+              <div className="customer-profile-top">
+                <span className="customer-avatar">
+                  <User />
+                </span>
+                <div>
+                  <h1>
+                    {user
+                      ? profile.data?.full_name || "حسابي"
+                      : ar
+                        ? "أهلًا فيك في FoodHub"
+                        : "Welcome to FoodHub"}
+                  </h1>
+                  {user ? (
+                    <p>{profile.data?.phone || user.email}</p>
+                  ) : (
+                    <p>سجّل دخولك لمتابعة طلباتك</p>
+                  )}
+                </div>
+              </div>
+              {profile.isError && <p role="alert">تعذر تحميل معلومات الحساب</p>}
+              {!user && (
+                <Button className="customer-wide" onClick={() => setSheet("login")}>
+                  سجّل دخولك
+                </Button>
+              )}
+              {user && (
+                <div className="customer-profile-shortcuts">
+                  <Button variant="outline" onClick={() => go("radar")}>
+                    <Receipt />
+                    طلباتك
+                  </Button>
+                  <Button variant="outline" onClick={() => setSheet("favorites")}>
+                    <Heart />
+                    مفضلتك
+                  </Button>
+                </div>
+              )}
+              <div className="customer-account-list">
+                {user && (
+                  <Button variant="ghost" onClick={() => setSheet("info")}>
+                    <User />
+                    معلوماتك
+                    <ChevronRight />
+                  </Button>
+                )}
+                <Button variant="ghost" onClick={() => setSheet("settings")}>
+                  <Settings />
+                  الإعدادات
+                  <ChevronRight />
+                </Button>
+                <Button variant="ghost" asChild>
+                  <Link to="/help">
+                    <HelpCircle />
+                    تحتاج مساعدة؟
+                    <ChevronRight />
+                  </Link>
+                </Button>
+                <Button variant="ghost" asChild>
+                  <Link to="/privacy">
+                    <ShieldCheck />
+                    سياسة الخصوصية
+                    <ChevronRight />
+                  </Link>
+                </Button>
+                {user && (
+                  <Button
+                    variant="ghost"
+                    className="text-destructive"
+                    onClick={async () => {
+                      await supabase.auth.signOut();
+                      qc.removeQueries({ queryKey: ["customer-profile"] });
+                    }}
+                  >
+                    <LogOut />
+                    تسجيل الخروج
+                  </Button>
+                )}
+              </div>
+            </div>
+          )}
+        </main>
+        <nav className="customer-bottom-nav" aria-label="تنقل تطبيق العميل">
+          {[
+            { id: "home" as Tab, label: ar ? "الرئيسية" : "Home", icon: Home },
+            { id: "kitchens" as Tab, label: ar ? "الأقسام" : "Categories", icon: Layers },
+            { id: "radar" as Tab, label: ar ? "طلباتي" : "Orders", icon: Radar },
+            { id: "cart" as Tab, label: ar ? "السلة" : "Cart", icon: ShoppingBag },
+            { id: "profile" as Tab, label: ar ? "حسابي" : "Account", icon: User },
+          ].map((n) => (
+            <Button
+              key={n.id}
+              variant="ghost"
+              aria-current={tab === n.id && !selected ? "page" : undefined}
+              onClick={() => go(n.id)}
+              className={`customer-nav-item ${n.id === "radar" ? "customer-nav-orders" : ""}`}
+            >
+              <span>
+                <n.icon />
+                {n.id === "cart" && lines.length > 0 && (
+                  <b>{lines.reduce((v, l) => v + l.quantity, 0)}</b>
+                )}
+              </span>
+              <small>{n.label}</small>
+            </Button>
+          ))}
+        </nav>
+        <Dialog.Root
+          open={!!sheet || !!meal}
+          onOpenChange={(v) => {
+            if (!v) {
+              setSheet(null);
+              setMeal(null);
+            }
+          }}
+        >
+          <Dialog.Portal>
+            <Dialog.Overlay className="customer-sheet-overlay" />
+            <Dialog.Content
+              className="foodhub-customer customer-sheet"
+              dir={ar ? "rtl" : "ltr"}
+              aria-describedby={undefined}
+            >
+              <span className="customer-sheet-handle" />
+              <Dialog.Close asChild>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  aria-label="إغلاق"
+                  className="customer-sheet-close"
+                >
+                  <X />
+                </Button>
+              </Dialog.Close>
+              <Dialog.Title className="customer-sheet-title">
+                {meal
+                  ? meal.name_ar
+                  : {
+                      location: "عنوان التوصيل",
+                      login: "تسجيل الدخول",
+                      info: "معلوماتك",
+                      settings: "الإعدادات",
+                      favorites: "المفضلة",
+                    }[sheet ?? "location"]}
+              </Dialog.Title>
+              {meal && (
+                <>
+                  {meal.image_url && (
+                    <img className="customer-sheet-food" src={meal.image_url} alt={meal.name_ar} />
+                  )}
+                  <p>{meal.description_ar}</p>
+                  <strong>{Number(meal.price).toFixed(2)} ر.س</strong>
+                  <div className="customer-quantity">
+                    <Button
+                      variant="outline"
+                      size="icon"
+                      disabled={qty === 1}
+                      onClick={() => setQty((q) => q - 1)}
+                      aria-label="تقليل الكمية"
+                    >
+                      <Minus />
+                    </Button>
+                    <b>{qty}</b>
+                    <Button
+                      variant="outline"
+                      size="icon"
+                      onClick={() => setQty((q) => q + 1)}
+                      aria-label="زيادة الكمية"
+                    >
+                      <Plus />
+                    </Button>
+                  </div>
+                  <Button
+                    onClick={() => {
+                      add(meal, qty);
+                      setMeal(null);
+                    }}
+                  >
+                    إضافة للسلة · {(Number(meal.price) * qty).toFixed(2)} ر.س
+                  </Button>
+                </>
+              )}
+              {sheet === "location" && (
+                <form
+                  className="customer-form"
+                  onSubmit={(e) => {
+                    e.preventDefault();
+                    setSheet(null);
+                  }}
+                >
+                  <label>
+                    العنوان
+                    <input
+                      required
+                      value={address}
+                      onChange={(e) => setAddress(e.target.value)}
+                      placeholder="الحي، الشارع، رقم المبنى"
+                    />
+                  </label>
+                  <Button type="submit">تأكيد العنوان</Button>
+                </form>
+              )}
+              {sheet === "login" && (
+                <form className="customer-form" onSubmit={login}>
+                  <label>
+                    البريد الإلكتروني
+                    <input
+                      required
+                      type="email"
+                      value={email}
+                      onChange={(e) => setEmail(e.target.value)}
+                      autoComplete="email"
+                    />
+                  </label>
+                  <label>
+                    كلمة المرور
+                    <input
+                      required
+                      type="password"
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
+                      autoComplete="current-password"
+                    />
+                  </label>
+                  <Button disabled={busy} type="submit">
+                    {busy ? "جارِ الدخول…" : "تسجيل الدخول"}
+                  </Button>
+                </form>
+              )}
+              {sheet === "info" && (
+                <form className="customer-form" onSubmit={save}>
+                  <label>
+                    الاسم
+                    <input
+                      required
+                      maxLength={30}
+                      value={name}
+                      onChange={(e) => setName(e.target.value)}
+                    />
+                  </label>
+                  <label>
+                    رقم الجوال
+                    <input type="tel" value={phone} onChange={(e) => setPhone(e.target.value)} />
+                  </label>
+                  <label>
+                    البريد الإلكتروني
+                    <input readOnly value={user?.email ?? ""} />
+                  </label>
+                  <Button disabled={busy} type="submit">
+                    حفظ التغييرات
+                  </Button>
+                </form>
+              )}
+              {sheet === "settings" && (
+                <div className="customer-setting-row">
+                  <Globe />
+                  <strong>اللغة</strong>
+                  <Button variant="outline" onClick={() => setLang(ar ? "en" : "ar")}>
+                    {ar ? "English" : "العربية"}
+                  </Button>
+                </div>
+              )}
+              {sheet === "favorites" && (
+                <div className="customer-empty">
+                  <Heart />
+                  <p>لا توجد وجبات مفضلة محفوظة</p>
+                  <Button
+                    onClick={() => {
+                      setSheet(null);
+                      go("home");
+                    }}
+                  >
+                    تصفح الوجبات
+                  </Button>
+                </div>
+              )}
+            </Dialog.Content>
+          </Dialog.Portal>
+        </Dialog.Root>
+      </div>
+    </div>
+  );
 }
