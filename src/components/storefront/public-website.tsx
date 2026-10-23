@@ -37,7 +37,7 @@ export function PublicWebsite() {
     <main>
       <section id="home" className="web-video" aria-label={t("مندوب FoodHub في طريقه للتوصيل","FoodHub courier delivery film")}>
         <video ref={video} autoPlay muted loop playsInline preload="auto" poster={posterAsset.url} onPlay={()=>setPaused(false)} onPause={()=>setPaused(true)}><source src={videoAsset.url} type="video/webm"/><source src={mp4Asset.url} type="video/mp4"/></video>
-        <div className="web-video-caption"><span><Bike className="size-4"/> FOODHUB · {t("من المطعم إلى بابك","From the kitchen to your door")}</span><Button variant="ghost" size="icon" aria-label={paused?t("تشغيل الفيديو","Play video"):t("إيقاف الفيديو مؤقتاً","Pause video")} onClick={()=>{if(paused)void video.current?.play();else video.current?.pause();}}>{paused?<Play className="size-4"/>:<Pause className="size-4"/>}</Button></div>
+        <div className="web-video-caption"><span><Bike className="size-4"/> FOODHUB · {t("من المطعم إلى بابك","From the kitchen to your door")}</span><Button variant="ghost" size="icon" aria-label={paused?t("تشغيل الفيديو","Play video"):t("إيقاف الفيديو مؤقتاً","Pause video")} onClick={()=>{const player=video.current;if(!player)return;if(player.paused)void player.play();else player.pause();}}>{paused?<Play className="size-4"/>:<Pause className="size-4"/>}</Button></div>
       </section>
       <section className="web-intro">
         <div className="web-container text-center"><h1>FOOD<span>HUB</span></h1><h2>{t("وجبتك، بكل بساطة","Your meal. Made simple.")}</h2><p className="web-lead">{t("اختر من المطاعم المتاحة، أكمل طلبك، وتابع توصيله.","Browse available restaurants, place your order, and follow its delivery.")}</p>{orderButton}
