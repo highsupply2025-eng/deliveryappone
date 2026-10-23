@@ -1,5 +1,5 @@
 # Mobile app completion
-- [ ] Align public browser website with the simple light customer app; replace outdated sample screenshots with current real empty states, preserve video and logo, verify mobile/desktop navigation.
+- [x] Align public browser website with the simple light customer app; replaced sample screenshots with captured current public home/orders/account states, retained video/logo, verified images, video controls, FAQ and customer navigation at 360px and 1280px without runtime errors or overflow.
 - [x] Simplify customer presentation to four equal navigation items, readable meal tiles, single category selector and unframed help/privacy; verified address entry, empty cart/orders, account and FAQ on phone/desktop without overflow or runtime errors. Real catalog remains empty; no checkout submitted.
 - [x] Replace unsupported privacy claims with a preliminary FoodHub-specific notice in the light customer style; links, language, back and FAQ verified on mobile/desktop.
 - [x] Update help center with accurate guidance and no invented email, phone, WhatsApp, or simulated message submission.
