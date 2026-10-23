@@ -1,75 +1,268 @@
 import { useState } from "react";
 import { Search, ChevronLeft, Plus, SlidersHorizontal, Store, UtensilsCrossed } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import burgerBanner from "@/assets/customer-burger-banner.jpg";
-import type { Meal, Restaurant } from "./customer-mobile-app";
+import type { CatalogMeal, CatalogRestaurant } from "@/lib/customer-catalog";
 
-interface Category { id: string; nameAr: string; nameEn: string; emoji: string }
 interface Props {
   ar: boolean;
-  categories: Category[];
+  categories: string[];
   category: string;
   onCategory: (id: string) => void;
   search: string;
   onSearch: (value: string) => void;
-  meals: Meal[];
-  restaurants: Restaurant[];
-  onRestaurant: (restaurant: Restaurant) => void;
-  onMeal: (meal: Meal) => void;
-  onAdd: (meal: Meal) => void;
+  meals: CatalogMeal[];
+  restaurants: CatalogRestaurant[];
+  onRestaurant: (restaurant: CatalogRestaurant) => void;
+  onMeal: (meal: CatalogMeal) => void;
+  onAdd: (meal: CatalogMeal) => void;
   onBrowse: () => void;
   directory?: boolean;
+  loading?: boolean;
+  error?: boolean;
+  onRetry: () => void;
 }
-
 export function CustomerDiscovery(p: Props) {
   const [slide, setSlide] = useState(0);
-  const slides = [
-    { title: p.ar ? "برجر على مزاجك" : "Your burger favourites", sub: p.ar ? "وجبتك المفضلة من مطاعم FoodHub" : "Your favourite meals from FoodHub", category: "burger" },
-    { title: p.ar ? "خفيفة ولذيذة" : "Fresh and delicious", sub: p.ar ? "اكتشف خيارات الوجبات الصحية" : "Explore healthy meal options", category: "healthy" },
-    { title: p.ar ? "خلّها حلوة" : "Something sweet", sub: p.ar ? "حلى وقهوة تكمل يومك" : "Desserts and coffee for your day", category: "sweets" },
-  ];
-  const current = slides[slide] ?? { title: "FoodHub", sub: "", category: "all" };
-  const restaurants = p.restaurants.filter(r => (p.category === "all" || r.category === p.category) && (!p.search || r.nameAr.includes(p.search) || r.nameEn.toLowerCase().includes(p.search.toLowerCase())));
-  return <div className="customer-discovery">
-    <div className="customer-search">
-      <Search aria-hidden="true" />
-      <input aria-label={p.ar ? "البحث عن مطعم أو وجبة" : "Search restaurants or meals"} placeholder={p.ar ? "وش ودّك تاكل اليوم؟" : "What are you craving today?"} value={p.search} onChange={e => p.onSearch(e.target.value)} />
-      {p.search && <Button variant="ghost" size="icon" aria-label="مسح البحث" onClick={() => p.onSearch("")}>×</Button>}
-    </div>
-    {!p.directory && !p.search && <section className={`customer-food-banner customer-food-banner--${slide}`}>
-      <img src={slide === 0 ? burgerBanner : p.restaurants.find(r => r.category === current.category)?.image ?? burgerBanner} alt={current.title} width={1536} height={1024} />
-      <div className="customer-banner-copy">
-        <span>FOODHUB</span><h1>{current.title}</h1><p>{current.sub}</p>
-        <Button onClick={() => p.onCategory(current.category)} className="customer-banner-cta">{p.ar ? "شوف الوجبات" : "Explore meals"}<ChevronLeft /></Button>
+  const featured = p.restaurants.filter((r) => r.image_url).slice(0, 5);
+  const current = featured[slide] ?? featured[0];
+  const restaurants = p.restaurants.filter(
+    (r) =>
+      (!p.search || `${r.name_ar} ${r.name_en}`.toLowerCase().includes(p.search.toLowerCase())) &&
+      (p.category === "all" || p.meals.some((m) => m.restaurant_id === r.id)),
+  );
+  return (
+    <div className="customer-discovery">
+      <div className="customer-search">
+        <Search aria-hidden="true" />
+        <input
+          aria-label={p.ar ? "البحث عن مطعم أو وجبة" : "Search restaurants or meals"}
+          placeholder={p.ar ? "وش ودّك تاكل اليوم؟" : "What are you craving today?"}
+          value={p.search}
+          onChange={(e) => p.onSearch(e.target.value)}
+        />
+        {p.search && (
+          <Button variant="ghost" size="icon" aria-label="مسح البحث" onClick={() => p.onSearch("")}>
+            ×
+          </Button>
+        )}
       </div>
-      <div className="customer-banner-dots">{slides.map((s, i) => <Button key={s.category} variant="ghost" aria-label={s.title} aria-pressed={slide === i} onClick={() => setSlide(i)} className={slide === i ? "is-selected" : ""} />)}</div>
-    </section>}
-    <div className="customer-discovery-content">
-      <Button variant="ghost" className="customer-browse-band" onClick={p.onBrowse}>
-        <span className="customer-browse-icon"><UtensilsCrossed /></span>
-        <span><strong>{p.ar ? "مطاعمك المفضلة، في مكان واحد" : "Your favourite restaurants, together"}</strong><small>{p.ar ? "اكتشف المطاعم وتصفّح قوائم الوجبات" : "Discover restaurants and explore their menus"}</small></span><ChevronLeft />
-      </Button>
-      {p.directory && <>
-        <div className="customer-section-heading"><h2>{p.ar ? "الأقسام" : "Categories"}</h2><Store /></div>
-        <div className="customer-category-grid">{p.categories.filter(c => c.id !== "all").map(c => <Button variant="ghost" key={c.id} onClick={() => p.onCategory(c.id)} aria-pressed={p.category === c.id} className={p.category === c.id ? "is-selected" : ""}><span>{c.emoji}</span><strong>{p.ar ? c.nameAr : c.nameEn}</strong></Button>)}</div>
-      </>}
-      <div className="customer-filters">
-        <Button variant="outline" size="icon" aria-label={p.ar ? "عرض كل الوجبات" : "Show all meals"} onClick={() => p.onCategory("all")}><SlidersHorizontal /></Button>
-        {p.categories.map(c => <Button variant="outline" key={c.id} aria-pressed={p.category === c.id} onClick={() => p.onCategory(c.id)} className={p.category === c.id ? "is-selected" : ""}><span>{c.emoji}</span>{p.ar ? c.nameAr : c.nameEn}</Button>)}
+      {!p.directory && !p.search && current && (
+        <section className="customer-food-banner">
+          <img src={current.image_url ?? ""} alt={current.name_ar} width={900} height={500} />
+          <div className="customer-banner-copy">
+            <span>FOODHUB</span>
+            <h1>{p.ar ? current.name_ar : current.name_en}</h1>
+            <p>{p.ar ? current.cuisine_ar : current.cuisine_en}</p>
+            <Button onClick={() => p.onRestaurant(current)} className="customer-banner-cta">
+              {p.ar ? "شوف القائمة" : "Explore menu"}
+              <ChevronLeft />
+            </Button>
+          </div>
+          <div className="customer-banner-dots">
+            {featured.map((r, i) => (
+              <Button
+                key={r.id}
+                variant="ghost"
+                aria-label={r.name_ar}
+                aria-pressed={slide === i}
+                onClick={() => setSlide(i)}
+                className={slide === i ? "is-selected" : ""}
+              />
+            ))}
+          </div>
+        </section>
+      )}
+      <div className="customer-discovery-content">
+        <Button variant="ghost" className="customer-browse-band" onClick={p.onBrowse}>
+          <span className="customer-browse-icon">
+            <UtensilsCrossed />
+          </span>
+          <span>
+            <strong>{p.ar ? "المطاعم والمطابخ" : "Restaurants & kitchens"}</strong>
+            <small>{p.ar ? "تصفّح قوائم الطعام" : "Explore the menus"}</small>
+          </span>
+          <ChevronLeft />
+        </Button>
+        {p.loading ? (
+          <div className="customer-empty">
+            {p.ar ? "جارِ تحميل المطاعم…" : "Loading restaurants…"}
+          </div>
+        ) : p.error ? (
+          <div className="customer-empty" role="alert">
+            <p>تعذر تحميل المطاعم</p>
+            <Button variant="outline" onClick={p.onRetry}>
+              إعادة المحاولة
+            </Button>
+          </div>
+        ) : p.restaurants.length === 0 ? (
+          <div className="customer-empty">
+            <Store />
+            <h2>{p.ar ? "لا توجد مطاعم متاحة حاليًا" : "No restaurants available yet"}</h2>
+          </div>
+        ) : (
+          <>
+            {p.directory && (
+              <>
+                <div className="customer-section-heading">
+                  <h2>{p.ar ? "الأقسام" : "Categories"}</h2>
+                  <Store />
+                </div>
+                <div className="customer-category-grid">
+                  {p.categories.map((c) => (
+                    <Button
+                      variant="ghost"
+                      key={c}
+                      onClick={() => p.onCategory(c)}
+                      aria-pressed={p.category === c}
+                      className={p.category === c ? "is-selected" : ""}
+                    >
+                      <UtensilsCrossed />
+                      <strong>{c}</strong>
+                    </Button>
+                  ))}
+                </div>
+              </>
+            )}
+            <div className="customer-filters">
+              <Button
+                variant="outline"
+                size="icon"
+                aria-label="عرض كل الوجبات"
+                onClick={() => p.onCategory("all")}
+              >
+                <SlidersHorizontal />
+              </Button>
+              <Button
+                variant="outline"
+                onClick={() => p.onCategory("all")}
+                className={p.category === "all" ? "is-selected" : ""}
+              >
+                {p.ar ? "الكل" : "All"}
+              </Button>
+              {p.categories.map((c) => (
+                <Button
+                  variant="outline"
+                  key={c}
+                  aria-pressed={p.category === c}
+                  onClick={() => p.onCategory(c)}
+                  className={p.category === c ? "is-selected" : ""}
+                >
+                  {c}
+                </Button>
+              ))}
+            </div>
+            {!p.directory && (
+              <>
+                <div className="customer-section-heading">
+                  <h2>{p.ar ? "الوجبات" : "Meals"}</h2>
+                  <span>{p.meals.length}</span>
+                </div>
+                <div className="customer-meal-grid">
+                  {p.meals.map((m) => (
+                    <article key={m.id} className="customer-meal">
+                      <div className="customer-meal-picture">
+                        <Button
+                          variant="ghost"
+                          onClick={() => p.onMeal(m)}
+                          aria-label={m.name_ar}
+                          className="customer-picture-button"
+                        >
+                          {m.image_url ? (
+                            <img
+                              loading="lazy"
+                              src={m.image_url}
+                              alt={m.name_ar}
+                              width={240}
+                              height={240}
+                            />
+                          ) : (
+                            <UtensilsCrossed aria-label="بدون صورة" />
+                          )}
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="icon"
+                          className="customer-add"
+                          aria-label={`إضافة ${m.name_ar} للسلة`}
+                          onClick={() => p.onAdd(m)}
+                        >
+                          <Plus />
+                        </Button>
+                      </div>
+                      <Button
+                        variant="ghost"
+                        className="customer-restaurant-tag"
+                        onClick={() => {
+                          const r = p.restaurants.find((r) => r.id === m.restaurant_id);
+                          if (r) p.onRestaurant(r);
+                        }}
+                      >
+                        {p.restaurants.find((r) => r.id === m.restaurant_id)?.name_ar}
+                        <ChevronLeft />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        className="customer-meal-name"
+                        onClick={() => p.onMeal(m)}
+                      >
+                        {p.ar ? m.name_ar : m.name_en}
+                      </Button>
+                      <small>{m.category_ar}</small>
+                      <strong className="customer-meal-price">
+                        {Number(m.price).toFixed(2)} <span>{p.ar ? "ر.س" : "SAR"}</span>
+                      </strong>
+                    </article>
+                  ))}
+                </div>
+                {p.meals.length === 0 && (
+                  <p className="customer-empty">
+                    {p.ar ? "لا توجد وجبات متاحة" : "No meals available"}
+                  </p>
+                )}
+              </>
+            )}
+            <div className="customer-section-heading">
+              <h2>{p.ar ? "المطاعم والمطابخ" : "Restaurants & kitchens"}</h2>
+              {!p.directory && (
+                <Button variant="ghost" onClick={p.onBrowse}>
+                  عرض الكل
+                  <ChevronLeft />
+                </Button>
+              )}
+            </div>
+            <div className={p.directory ? "customer-restaurant-list" : "customer-restaurant-strip"}>
+              {restaurants.map((r) => (
+                <Button
+                  key={r.id}
+                  variant="ghost"
+                  onClick={() => p.onRestaurant(r)}
+                  className="customer-restaurant-card"
+                >
+                  {r.image_url ? (
+                    <img
+                      loading="lazy"
+                      src={r.image_url}
+                      alt={r.name_ar}
+                      width={300}
+                      height={180}
+                    />
+                  ) : (
+                    <Store />
+                  )}
+                  <span>
+                    <strong>{p.ar ? r.name_ar : r.name_en}</strong>
+                    <small>{p.ar ? r.cuisine_ar : r.cuisine_en}</small>
+                    <small>
+                      {r.eta_minutes} {p.ar ? "دقيقة تحضير" : "min preparation"} ·{" "}
+                      {Number(r.delivery_fee).toFixed(2)} {p.ar ? "ر.س توصيل" : "SAR delivery"}
+                    </small>
+                  </span>
+                </Button>
+              ))}
+            </div>
+          </>
+        )}
       </div>
-      {!p.directory && <>
-        <div className="customer-section-heading"><h2>{p.ar ? "وجبات تختارها أنت" : "Meals for you"}</h2><span>{p.meals.length} {p.ar ? "وجبة" : "meals"}</span></div>
-        <div className="customer-meal-grid">{p.meals.map(m => <article key={m.id} className="customer-meal">
-          <div className="customer-meal-picture"><Button variant="ghost" onClick={() => p.onMeal(m)} aria-label={m.nameAr} className="customer-picture-button"><img loading="lazy" src={m.image} alt={m.nameAr} width={240} height={240} /></Button><Button variant="outline" size="icon" className="customer-add" aria-label={`إضافة ${m.nameAr} للسلة`} onClick={() => p.onAdd(m)}><Plus /></Button></div>
-          <Button variant="ghost" className="customer-restaurant-tag" onClick={() => { const r = p.restaurants.find(r => r.id === m.restaurantId); if (r) p.onRestaurant(r); }}>{p.restaurants.find(r => r.id === m.restaurantId)?.nameAr.split(" (")[0]}<ChevronLeft /></Button>
-          <Button variant="ghost" className="customer-meal-name" onClick={() => p.onMeal(m)}>{p.ar ? m.nameAr : m.nameEn}</Button>
-          <small>{m.calories} {p.ar ? "سعرة حرارية" : "kcal"}</small><strong className="customer-meal-price">{m.price.toFixed(2)} <span>{p.ar ? "ر.س" : "SAR"}</span></strong>
-        </article>)}</div>
-        {p.meals.length === 0 && <p className="customer-empty">{p.ar ? "لا توجد وجبات تطابق بحثك" : "No meals match your search"}</p>}
-      </>}
-      <div className="customer-section-heading"><h2>{p.ar ? "المطاعم والمطابخ" : "Restaurants & kitchens"}</h2>{!p.directory && <Button variant="ghost" onClick={p.onBrowse}>{p.ar ? "عرض الكل" : "View all"}<ChevronLeft /></Button>}</div>
-      <div className={p.directory ? "customer-restaurant-list" : "customer-restaurant-strip"}>{restaurants.map(r => <Button key={r.id} variant="ghost" onClick={() => p.onRestaurant(r)} className="customer-restaurant-card"><img loading="lazy" src={r.image} alt={r.nameAr} width={300} height={180} /><span><strong>{p.ar ? r.nameAr : r.nameEn}</strong><small>{r.tagAr}</small><small>{r.eta} · {r.deliveryFee === 0 ? "توصيل مجاني" : `${r.deliveryFee} ر.س`}</small></span></Button>)}</div>
-      {restaurants.length === 0 && p.directory && <p className="customer-empty">{p.ar ? "لا توجد مطاعم تطابق بحثك" : "No restaurants match your search"}</p>}
     </div>
-  </div>;
+  );
 }
