@@ -17,7 +17,7 @@ export function orderMapStyle(token: string | undefined): string | StyleSpecific
     layers: [{ id: "mapbox", type: "raster", source: "mapbox" }],
   };
 }
-export const ORDER_MAP_STYLE = orderMapStyle(import.meta.env.VITE_LOVABLE_CONNECTOR_MAPBOX_PUBLIC_TOKEN as string | undefined);
+export const ORDER_MAP_STYLE = orderMapStyle(import.meta.env["VITE_LOVABLE_CONNECTOR_MAPBOX_PUBLIC_TOKEN"] as string | undefined);
 export type OrderMapPoint = { id: "pickup" | "delivery" | "courier"; label: string; coordinates: [number, number] };
 type Coordinates = { latitude: number | null; longitude: number | null };
 export function orderMapPoints(order: {
