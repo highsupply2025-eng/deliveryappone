@@ -18,3 +18,4 @@
 - Coverage uses an exact delivery-neighborhood label and an admin-confirmed adjacency set; only orders with a real pickup address are dispatched to avoid invented locations.
 - Keep the public browser presentation in its own storefront module and scope its CSS to .foodhub-web so native role experiences and shared pages retain their designs.
 - Keep customer discovery in its own module with always-light tokens scoped to .foodhub-customer; use stored catalog/profile/orders, exclude only verified unclaimed initial catalog fixtures, and never substitute demo data when reads fail. Customer checkout persists pending orders and item rows, not local simulated orders.
+- Customer privacy and help routes share CustomerInformationLayout and scoped customer tokens so legal/help navigation keeps the standalone customer presentation without altering other role apps.
