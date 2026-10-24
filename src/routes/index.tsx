@@ -29,8 +29,15 @@ export const Route = createFileRoute("/")({
     ],
     links: [{ rel: "canonical", href: "https://foodhub.delivery/" }],
   }),
-  component: () => <Suspense fallback={<div dir="rtl" className="min-h-screen bg-background p-6 text-foreground">FoodHub · جارِ الفتح…</div>}><HomePage /></Suspense>,
+  component: AppEntry,
 });
+
+function AppEntry() {
+  const searchStr = useLocation({ select: location => location.searchStr });
+  const mode = new URLSearchParams(searchStr).get("app")?.toLowerCase();
+  const staff = ["captain", "courier", "kitchen", "vendor", "admin"].includes(mode ?? "");
+  return <div className={staff ? "foodhub-staff" : undefined}><Suspense fallback={<div dir="rtl" className="min-h-screen bg-background p-6 text-foreground">FoodHub · جارِ الفتح…</div>}><HomePage /></Suspense></div>;
+}
 
 function HomePage() {
   const searchStr = useLocation({select:location=>location.searchStr});
@@ -93,7 +100,7 @@ function HomePage() {
   // 2. Kitchen & Merchant Standalone Mobile/Tablet App (Loaded by Kitchen APK: delivery.foodhub.kitchen)
   if (appMode === "kitchen") {
     return (
-      <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col selection:bg-emerald-500 selection:text-slate-950">
+      <div className="min-h-screen bg-background text-foreground flex flex-col">
         <main className="flex-1">
           <KitchenMobileApp />
         </main>

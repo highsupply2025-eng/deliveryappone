@@ -57,7 +57,7 @@ function AdminApp() {
 
 function Screen({ children }: { children: React.ReactNode }) {
   return (
-    <div dir="rtl" className="flex min-h-screen flex-col items-center justify-center bg-background p-6 text-foreground">
+    <div dir="rtl" className="foodhub-staff flex min-h-screen flex-col items-center justify-center bg-background p-6 text-foreground">
       {children}
     </div>
   );
@@ -131,7 +131,7 @@ function Panel() {
   ];
 
   return (
-    <div dir="rtl" className="min-h-screen bg-background pb-20 text-foreground">
+    <div dir="rtl" className="foodhub-staff min-h-screen bg-background pb-20 text-foreground">
       <header className="sticky top-0 z-10 flex items-center justify-between border-b bg-card px-4 py-3 pt-[max(0.75rem,env(safe-area-inset-top))]">
         <div className="flex items-center gap-2 font-bold"><ShieldCheck className="size-5 text-primary" /> FoodHub Admin</div>
         <div className="flex gap-1">
