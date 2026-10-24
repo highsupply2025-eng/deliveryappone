@@ -39,6 +39,7 @@ import { Button } from "@/components/ui/button";
 import { FoodHubLogo } from "@/components/food-hub-logo";
 import { CustomerDiscovery } from "./customer-discovery";
 import { LiveTrackingList } from "./live-tracking-list";
+import { PhoneLogin } from "./phone-login";
 
 type Tab = "home" | "kitchens" | "cart" | "radar" | "profile";
 type Sheet = "location" | "login" | "info" | "settings" | "favorites" | null;
@@ -59,8 +60,6 @@ export function CustomerMobileApp() {
   const [phone, setPhone] = useState("");
   const [notes, setNotes] = useState("");
   const [name, setName] = useState("");
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
   const [busy, setBusy] = useState(false);
   useEffect(() => {
     if (!localStorage.getItem("lang")) setLang("ar");
@@ -207,18 +206,6 @@ export function CustomerMobileApp() {
     } finally {
       setBusy(false);
     }
-  };
-  const login = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setBusy(true);
-    const { error } = await supabase.auth.signInWithPassword({ email: email.trim(), password });
-    setBusy(false);
-    if (error) {
-      toast.error("تعذر تسجيل الدخول؛ تحقق من بياناتك");
-      return;
-    }
-    setPassword("");
-    setSheet(null);
   };
   const save = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -670,31 +657,7 @@ export function CustomerMobileApp() {
                 </form>
               )}
               {sheet === "login" && (
-                <form className="customer-form" onSubmit={login}>
-                  <label>
-                    البريد الإلكتروني
-                    <input
-                      required
-                      type="email"
-                      value={email}
-                      onChange={(e) => setEmail(e.target.value)}
-                      autoComplete="email"
-                    />
-                  </label>
-                  <label>
-                    كلمة المرور
-                    <input
-                      required
-                      type="password"
-                      value={password}
-                      onChange={(e) => setPassword(e.target.value)}
-                      autoComplete="current-password"
-                    />
-                  </label>
-                  <Button disabled={busy} type="submit">
-                    {busy ? "جارِ الدخول…" : "تسجيل الدخول"}
-                  </Button>
-                </form>
+                <PhoneLogin onComplete={() => setSheet(null)} />
               )}
               {sheet === "info" && (
                 <form className="customer-form" onSubmit={save}>

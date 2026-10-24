@@ -386,6 +386,48 @@ export type Database = {
         }
         Relationships: []
       }
+      staff_applications: {
+        Row: {
+          business_name: string | null
+          created_at: string
+          documents: Json
+          full_name: string
+          id: string
+          rejection_reason: string | null
+          reviewed_at: string | null
+          status: string
+          type: string
+          user_id: string
+          vehicle: string | null
+        }
+        Insert: {
+          business_name?: string | null
+          created_at?: string
+          documents?: Json
+          full_name: string
+          id?: string
+          rejection_reason?: string | null
+          reviewed_at?: string | null
+          status?: string
+          type: string
+          user_id: string
+          vehicle?: string | null
+        }
+        Update: {
+          business_name?: string | null
+          created_at?: string
+          documents?: Json
+          full_name?: string
+          id?: string
+          rejection_reason?: string | null
+          reviewed_at?: string | null
+          status?: string
+          type?: string
+          user_id?: string
+          vehicle?: string | null
+        }
+        Relationships: []
+      }
       user_roles: {
         Row: {
           id: string
@@ -456,12 +498,26 @@ export type Database = {
         Args: { p_approve: boolean; p_shift_id: string }
         Returns: undefined
       }
+      review_staff_application: {
+        Args: { p_approve: boolean; p_id: string; p_reason?: string }
+        Returns: undefined
+      }
       shift_work_seconds: {
         Args: {
           at_time?: string
           s: Database["public"]["Tables"]["courier_shifts"]["Row"]
         }
         Returns: number
+      }
+      submit_staff_application: {
+        Args: {
+          p_business_name: string
+          p_documents: Json
+          p_full_name: string
+          p_type: string
+          p_vehicle: string
+        }
+        Returns: undefined
       }
     }
     Enums: {

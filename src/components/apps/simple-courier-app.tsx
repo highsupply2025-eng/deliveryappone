@@ -8,7 +8,8 @@ import { useSession } from "@/lib/session";
 import { courierShiftAction } from "@/lib/courier-shifts.functions";
 import { WORK_SECONDS, workedSeconds, canRequestBreak, canRejectOrder, courierAvailable } from "@/lib/courier-shift-rules";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
+import { PhoneLogin } from "./phone-login";
+import { StaffOnboarding } from "./staff-onboarding";
 import { useRealtime } from "@/lib/realtime";
 import { useCourierLocation } from "@/lib/live-location";
 import { LiveOrderMap } from "./live-order-map";
@@ -17,25 +18,13 @@ const duration = (seconds: number) => `${Math.floor(seconds/3600).toString().pad
 
 export function SimpleCourierApp() {
   const {user,role,loading} = useSession();
-  const [email,setEmail] = useState("");
-  const [password,setPassword] = useState("");
-  const [busy,setBusy] = useState(false);
-  const login = async (e:React.FormEvent) => {
-    e.preventDefault(); setBusy(true);
-    try { const {error} = await supabase.auth.signInWithPassword({email:email.trim(),password}); if(error) throw error; }
-    catch {toast.error("تعذر الدخول؛ تحقق من بيانات حسابك");} finally {setBusy(false);}
-  };
   if(loading) return <div dir="rtl" className="min-h-screen bg-background p-6 text-foreground">جارِ التحميل…</div>;
   if(!user) return <div dir="rtl" className="flex min-h-screen flex-col items-center justify-center bg-background p-6 text-foreground">
     <img src="/app-logo.png" alt="FoodHub" className="mb-5 size-16 object-contain" />
     <h1 className="mb-8 text-2xl font-bold tracking-normal">FoodHub المندوب</h1>
-    <form onSubmit={login} className="w-full max-w-sm space-y-4">
-      <label className="block text-sm">البريد الإلكتروني<Input aria-label="البريد الإلكتروني" type="email" autoComplete="username" value={email} onChange={e=>setEmail(e.target.value)} required /></label>
-      <label className="block text-sm">كلمة المرور<Input aria-label="كلمة المرور" type="password" autoComplete="current-password" value={password} onChange={e=>setPassword(e.target.value)} required /></label>
-      <Button className="w-full" disabled={busy}>دخول</Button>
-    </form>
+    <div className="w-full max-w-sm"><PhoneLogin /></div>
   </div>;
-  if(role!=="courier") return <div dir="rtl" className="min-h-screen bg-background p-8 text-foreground"><p className="mb-4">هذا التطبيق لحسابات المناديب فقط</p><Button onClick={()=>void supabase.auth.signOut()}>تسجيل الخروج</Button></div>;
+  if(role!=="courier") return <StaffOnboarding userId={user.id} type="courier" />;
   return <CourierWork userId={user.id} />;
 }
 

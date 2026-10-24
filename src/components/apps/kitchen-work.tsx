@@ -4,16 +4,16 @@ import { supabase } from "@/integrations/supabase/client";
 import { useSession } from "@/lib/session";
 import { useRealtime } from "@/lib/realtime";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
+import { PhoneLogin } from "./phone-login";
+import { StaffOnboarding } from "./staff-onboarding";
 import { LiveOrderMap } from "./live-order-map";
 import { toast } from "sonner";
 
 export function KitchenWork() {
   const {user,role,loading}=useSession();
-  const [email,setEmail]=useState("");const [password,setPassword]=useState("");const [busy,setBusy]=useState(false);
   if(loading)return <p className="p-6 text-muted-foreground">جارِ الفتح…</p>;
-  if(!user)return <div dir="rtl" className="flex min-h-screen items-center justify-center bg-background p-6 text-foreground"><form className="w-full max-w-sm space-y-4" onSubmit={async e=>{e.preventDefault();setBusy(true);const {error}=await supabase.auth.signInWithPassword({email,password});setBusy(false);if(error)toast.error("تعذر الدخول؛ تحقق من بياناتك");}}><img src="/app-logo.png" alt="FoodHub" className="size-16"/><h1 className="text-xl font-bold">FoodHub المطعم</h1><Input aria-label="البريد الإلكتروني" type="email" placeholder="البريد الإلكتروني" required value={email} onChange={e=>setEmail(e.target.value)}/><Input aria-label="كلمة المرور" type="password" placeholder="كلمة المرور" required value={password} onChange={e=>setPassword(e.target.value)}/><Button disabled={busy}>دخول</Button></form></div>;
-  if(role!=="restaurant"&&role!=="admin")return <div dir="rtl" className="p-6 text-foreground"><p>هذا التطبيق لحسابات المطاعم فقط</p><Button onClick={()=>void supabase.auth.signOut()}>خروج</Button></div>;
+  if(!user)return <div dir="rtl" className="flex min-h-screen items-center justify-center bg-background p-6 text-foreground"><div className="w-full max-w-sm space-y-5"><img src="/app-logo.png" alt="FoodHub" className="size-16"/><h1 className="text-xl font-bold">FoodHub المطعم</h1><PhoneLogin /></div></div>;
+  if(role!=="restaurant"&&role!=="admin")return <StaffOnboarding userId={user.id} type="restaurant" />;
   return <Tickets userId={user.id} admin={role==="admin"}/>;
 }
 function Tickets({userId,admin}:{userId:string;admin:boolean}) {

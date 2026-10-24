@@ -36,6 +36,13 @@
       "when": 1792795371450,
       "tag": "0004_orders_start_pending_menu_active_only",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1792806233900,
+      "tag": "0005_phone_staff_onboarding",
+      "breakpoints": true
     }
   ]
 }
