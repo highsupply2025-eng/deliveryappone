@@ -38,7 +38,10 @@ export const createAccount = createServerFn({ method: "POST" })
       user_metadata: { full_name: data.full_name, phone: data.phone, role: data.role },
     });
     if (error) throw new Error(error.message);
-    return { id: created.user?.id ?? "", email: data.email, role: data.role };
+    if (!created.user) throw new Error("User creation failed");
+    const { error: roleError } = await supabaseAdmin.from("user_roles").upsert({ user_id: created.user.id, role: data.role }, { onConflict: "user_id,role" });
+    if (roleError) throw new Error(roleError.message);
+    return { id: created.user.id, email: data.email, role: data.role };
   });
 
 export const approveJoinRequest = createServerFn({ method: "POST" })

@@ -13,6 +13,7 @@ import { AdminCourierShifts, AdminOrderRouting, ShiftFields, emptyShift, shiftPa
 import { assignCourierShift } from "@/lib/courier-shifts.functions";
 import { useRealtime } from "@/lib/realtime";
 import { LiveOrderMap } from "@/components/apps/live-order-map";
+import { AdminApplications } from "@/components/apps/admin-applications";
 
 export const Route = createFileRoute("/admin-app")({
   ssr: false,
@@ -157,6 +158,7 @@ function Panel() {
           ))
         ) : (
           <>
+            {(tab === "courier" || tab === "restaurant") && <AdminApplications type={tab} />}
             <NewAccount role={tab} onDone={refresh} />
             {(accounts.data ?? []).filter((a) => a.role === tab).map((a) => (
               <div key={a.id} className="rounded-xl border bg-card p-3">
