@@ -20,3 +20,4 @@
 - Public website app previews use captured current customer screens via asset pointers, not synthetic catalog images; recapture when customer presentation changes to prevent stale or misleading previews.
 - Keep customer discovery in its own module with always-light tokens scoped to .foodhub-customer; use stored catalog/profile/orders, exclude only verified unclaimed initial catalog fixtures, and never substitute demo data when reads fail. Customer checkout persists pending orders and item rows, not local simulated orders.
 - Customer privacy and help routes share CustomerInformationLayout and scoped customer tokens so legal/help navigation keeps the standalone customer presentation without altering other role apps.
+- Wrap native courier/restaurant entries and admin login/panel in `.foodhub-staff` with scoped semantic tokens so saved browser themes cannot alter staff screens or leak into other experiences.
