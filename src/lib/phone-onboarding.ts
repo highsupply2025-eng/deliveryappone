@@ -3,7 +3,9 @@ import { z } from 'zod';
 export function normalizePhone(value: string) {
   const digits = value.replace(/[٠-٩]/g, c => String('٠١٢٣٤٥٦٧٨٩'.indexOf(c))).replace(/[\s()-]/g, '');
   const phone = /^05\d{8}$/.test(digits) ? `+966${digits.slice(1)}` : digits.startsWith('00') ? `+${digits.slice(2)}` : digits;
-  return z.string().regex(/^\+[1-9]\d{7,14}$/, 'أدخل رقم الجوال مع رمز الدولة').parse(phone);
+  const result = z.string().regex(/^\+[1-9]\d{7,14}$/).safeParse(phone);
+  if (!result.success) throw new Error('أدخل رقم الجوال مع رمز الدولة');
+  return result.data;
 }
 export const documentLabels = {
   identity: 'الهوية', driving_license: 'رخصة القيادة', portrait: 'الصورة الشخصية',
