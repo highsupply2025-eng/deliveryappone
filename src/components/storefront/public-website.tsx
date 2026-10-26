@@ -1,6 +1,6 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { Link } from "@tanstack/react-router";
-import { ArrowUpLeft, Bike, ChevronDown, Globe2, MapPin, Pause, Play, ShoppingBag, Smartphone, UtensilsCrossed } from "lucide-react";
+import { ArrowUpLeft, ChevronDown, Globe2, MapPin, ShoppingBag, Smartphone, UtensilsCrossed } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { FoodHubLogo } from "@/components/food-hub-logo";
 import { useI18n } from "@/lib/i18n";
@@ -18,8 +18,6 @@ export function PublicWebsite() {
     if (!localStorage.getItem("lang")) setLang("ar");
   }, [setLang]);
   const t = (a:string,e:string) => ar?a:e;
-  const video = useRef<HTMLVideoElement>(null);
-  const [paused,setPaused] = useState(false);
   const [openFaq,setOpenFaq] = useState<number | null>(0);
   const faqs = [
     [t("كيف أطلب من FoodHub؟","How do I order from FoodHub?"),t("افتح تطبيق العميل، تصفح المطاعم المتاحة، واختر وجبتك وعنوان التسليم ثم أكمل الطلب.","Open the customer app, browse available restaurants, select your meal and delivery address, then place your order.")],
