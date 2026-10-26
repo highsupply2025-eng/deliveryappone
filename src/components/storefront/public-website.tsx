@@ -29,7 +29,7 @@ export function PublicWebsite() {
   return <div className="foodhub-web" dir={ar?"rtl":"ltr"}>
     <header className="web-header"><div className="web-container flex items-center justify-between gap-4">
       <Link to="/" aria-label="FoodHub"><FoodHubLogo size={38}/></Link>
-      <nav aria-label={t("القائمة الرئيسية","Main navigation")} className="hidden items-center gap-7 text-sm md:flex"><Link to="/" search={{ app: "customer" }}>{t("المطاعم","Restaurants")}</Link><Link to="/help">{t("المساعدة","Help")}</Link><Link to="/privacy">{t("الخصوصية","Privacy")}</Link></nav>
+      <nav aria-label={t("القائمة الرئيسية","Main navigation")} className="hidden items-center gap-7 text-sm md:flex"><Link to="/help">{t("المساعدة","Help")}</Link><Link to="/privacy">{t("الخصوصية","Privacy")}</Link></nav>
       <div className="flex items-center gap-3"><Button variant="ghost" size="sm" onClick={()=>setLang(ar?"en":"ar")} aria-label={t("English","العربية")}><Globe2 className="size-4"/>{ar?"En":"عربي"}</Button>{orderButton}</div>
     </div></header>
     <main>
