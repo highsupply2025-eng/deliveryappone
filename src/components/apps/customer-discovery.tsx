@@ -25,6 +25,12 @@ interface Props {
   error?: boolean;
   onRetry: () => void;
 }
+const showcaseRestaurants = [
+  { id: "alromansiah", nameAr: "الرومانسية", nameEn: "Al Romansiah", logo: logoRomansiah },
+  { id: "shawarma-house", nameAr: "بيت الشاورما", nameEn: "Shawarma House", logo: logoShawarmaHouse },
+  { id: "kfc", nameAr: "كنتاكى", nameEn: "KFC", logo: logoKfc },
+  { id: "mcdonalds", nameAr: "ماكدونالز", nameEn: "McDonald's", logo: logoMcdonalds },
+];
 export function CustomerDiscovery(p: Props) {
   const [slide, setSlide] = useState(0);
   const featured = p.restaurants.filter((r) => r.image_url).slice(0, 5);
