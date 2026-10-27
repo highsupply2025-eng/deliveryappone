@@ -696,6 +696,13 @@ html:not(.dark) .shadow-2xl {
 .customer-empty {padding:54px 16px;gap:16px;}
 .customer-empty>svg {width:56px;height:56px;color:var(--muted-foreground);}
 .customer-empty h2 {color:var(--foreground);font-weight:600;}
+.customer-showcase {display:grid;gap:12px;width:100%;max-width:420px;}
+.customer-showcase-item {display:flex;align-items:center;gap:14px;background:var(--background);border:1px solid var(--border);border-radius:8px;padding:12px 14px;text-align:start;}
+.customer-showcase-item img {width:48px;height:48px;border-radius:8px;object-fit:contain;flex-shrink:0;background:var(--background);}
+.customer-showcase-copy {min-width:0;}
+.customer-showcase-copy strong {display:block;font-size:15px;color:var(--foreground);font-weight:600;}
+.customer-showcase-rating {display:inline-flex;align-items:center;gap:4px;font-size:12px;color:var(--muted-foreground);margin-top:4px;}
+.customer-showcase-rating svg {width:14px;height:14px;fill:#f5b301;stroke:#f5b301;}
 .customer-bottom-nav {bottom:0;width:100%;max-width:680px;height:calc(80px + env(safe-area-inset-bottom));padding:8px 12px env(safe-area-inset-bottom);grid-template-columns:repeat(4,minmax(0,1fr));border-radius:0;border:0;border-top:1px solid var(--border);box-shadow:none;}
 .foodhub-customer .customer-nav-item {height:64px;border-radius:8px;gap:5px;}
 .customer-nav-item small {font-size:12px;color:inherit;font-weight:600;}

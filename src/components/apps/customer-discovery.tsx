@@ -1,6 +1,10 @@
 import { useState } from "react";
-import { Search, ChevronLeft, Plus, Store, UtensilsCrossed, X } from "lucide-react";
+import { Search, ChevronLeft, Plus, Store, UtensilsCrossed, X, Star } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import logoRomansiah from "@/assets/restaurant-alromansiah.png.asset.json";
+import logoShawarmaHouse from "@/assets/restaurant-shawarma-house.png.asset.json";
+import logoKfc from "@/assets/restaurant-kfc.png.asset.json";
+import logoMcdonalds from "@/assets/restaurant-mcdonalds.png.asset.json";
 import type { CatalogMeal, CatalogRestaurant } from "@/lib/customer-catalog";
 
 interface Props {
@@ -21,6 +25,12 @@ interface Props {
   error?: boolean;
   onRetry: () => void;
 }
+const showcaseRestaurants = [
+  { id: "alromansiah", nameAr: "الرومانسية", nameEn: "Al Romansiah", logo: logoRomansiah },
+  { id: "shawarma-house", nameAr: "بيت الشاورما", nameEn: "Shawarma House", logo: logoShawarmaHouse },
+  { id: "kfc", nameAr: "كنتاكى", nameEn: "KFC", logo: logoKfc },
+  { id: "mcdonalds", nameAr: "ماكدونالز", nameEn: "McDonald's", logo: logoMcdonalds },
+];
 export function CustomerDiscovery(p: Props) {
   const [slide, setSlide] = useState(0);
   const featured = p.restaurants.filter((r) => r.image_url).slice(0, 5);
@@ -97,8 +107,19 @@ export function CustomerDiscovery(p: Props) {
           </div>
         ) : p.restaurants.length === 0 ? (
           <div className="customer-empty">
-            <Store />
-            <h2>{p.ar ? "لا توجد مطاعم متاحة حاليًا" : "No restaurants available yet"}</h2>
+            <div className="customer-showcase">
+              {showcaseRestaurants.map((r) => (
+                <article key={r.id} className="customer-showcase-item">
+                  <img src={r.logo.url} alt={p.ar ? r.nameAr : r.nameEn} width={48} height={48} loading="lazy" />
+                  <div className="customer-showcase-copy">
+                    <strong>{p.ar ? r.nameAr : r.nameEn}</strong>
+                    <span className="customer-showcase-rating" aria-label={p.ar ? "التقييم 5 من 5" : "Rating 5 of 5"}>
+                      <Star aria-hidden="true" /> 5
+                    </span>
+                  </div>
+                </article>
+              ))}
+            </div>
           </div>
         ) : (
           <>
