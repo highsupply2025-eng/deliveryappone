@@ -1,6 +1,7 @@
 import * as React from 'react'
 import { createAuthEmailHandler } from '@lovable.dev/email-js'
 import { createFileRoute } from '@tanstack/react-router'
+import { loginEmailProps } from '@/lib/email-templates/login-email-props'
 import { SignupEmail } from '@/lib/email-templates/signup'
 import { InviteEmail } from '@/lib/email-templates/invite'
 import { MagicLinkEmail } from '@/lib/email-templates/magic-link'
@@ -9,7 +10,7 @@ import { EmailChangeEmail } from '@/lib/email-templates/email-change'
 import { ReauthenticationEmail } from '@/lib/email-templates/reauthentication'
 
 // Configuration
-const SITE_NAME = "foodhub"
+const SITE_NAME = "FoodHub"
 const SENDER_DOMAIN = "admin.foodhub.delivery"
 const ROOT_DOMAIN = "foodhub.delivery"
 const FROM_DOMAIN = "foodhub.delivery"
@@ -28,17 +29,14 @@ export const Route = createFileRoute("/lovable/email/auth/webhook")({
           sendUrl: process.env['LOVABLE_SEND_URL'],
           emails: {
             signup: {
-              subject: 'Confirm your email',
+              subject: 'FoodHub — رمز تأكيد البريد',
               render: (data) =>
                 React.createElement(SignupEmail, {
-                  siteName: SITE_NAME,
-                  siteUrl: SITE_URL,
-                  recipient: data.email,
-                  confirmationUrl: data.url,
+                  ...loginEmailProps(SITE_NAME, data),
                 }),
             },
             invite: {
-              subject: "You've been invited",
+              subject: 'FoodHub — دعوة للانضمام',
               render: (data) =>
                 React.createElement(InviteEmail, {
                   siteName: SITE_NAME,
@@ -47,15 +45,12 @@ export const Route = createFileRoute("/lovable/email/auth/webhook")({
                 }),
             },
             magiclink: {
-              subject: 'Your login link',
+              subject: 'FoodHub — رمز تسجيل الدخول',
               render: (data) =>
-                React.createElement(MagicLinkEmail, {
-                  siteName: SITE_NAME,
-                  confirmationUrl: data.url,
-                }),
+                React.createElement(MagicLinkEmail, loginEmailProps(SITE_NAME, data)),
             },
             recovery: {
-              subject: 'Reset your password',
+              subject: 'FoodHub — إعادة تعيين كلمة المرور',
               render: (data) =>
                 React.createElement(RecoveryEmail, {
                   siteName: SITE_NAME,
@@ -63,7 +58,7 @@ export const Route = createFileRoute("/lovable/email/auth/webhook")({
                 }),
             },
             email_change: {
-              subject: 'Confirm your new email',
+              subject: 'FoodHub — تأكيد تغيير البريد',
               render: (data) =>
                 React.createElement(EmailChangeEmail, {
                   siteName: SITE_NAME,
@@ -74,7 +69,7 @@ export const Route = createFileRoute("/lovable/email/auth/webhook")({
                 }),
             },
             reauthentication: {
-              subject: 'Your verification code',
+              subject: 'FoodHub — رمز التحقق',
               render: (data) =>
                 React.createElement(ReauthenticationEmail, { token: data.token ?? '' }),
             },
