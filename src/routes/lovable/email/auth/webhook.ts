@@ -25,6 +25,7 @@ export const Route = createFileRoute("/lovable/email/auth/webhook")({
         const handler = createAuthEmailHandler({
           apiKey: process.env['LOVABLE_API_KEY']!,
           from: { name: SITE_NAME, address: `noreply@${FROM_DOMAIN}` },
+          replyTo: { name: SITE_NAME, address: "foodhub@foodhub.delivery" },
           senderDomain: SENDER_DOMAIN,
           sendUrl: process.env['LOVABLE_SEND_URL'],
           emails: {
