@@ -32,11 +32,30 @@ export const Route = createFileRoute("/")({
   component: AppEntry,
 });
 
+function OpeningSplash() {
+  return (
+    <div
+      dir="rtl"
+      className="flex min-h-screen flex-col items-center justify-center gap-6 bg-white text-slate-900"
+    >
+      <div className="flex items-center gap-2">
+        <span className="text-2xl font-black tracking-wide text-slate-900">FOOD</span>
+        <span className="rounded-md bg-amber-400 px-2 py-0.5 text-2xl font-black tracking-wide text-slate-950">HUB</span>
+      </div>
+      <div
+        aria-label="جارِ الفتح"
+        className="h-8 w-8 animate-spin rounded-full border-[3px] border-amber-400 border-t-transparent"
+      />
+      <p className="text-sm font-medium text-slate-500">جارِ الفتح…</p>
+    </div>
+  );
+}
+
 function AppEntry() {
   const searchStr = useLocation({ select: location => location.searchStr });
   const mode = new URLSearchParams(searchStr).get("app")?.toLowerCase();
   const staff = ["captain", "courier", "kitchen", "vendor", "admin"].includes(mode ?? "");
-  return <div className={staff ? "foodhub-staff" : undefined}><Suspense fallback={<div dir="rtl" className="min-h-screen bg-background p-6 text-foreground">FoodHub · جارِ الفتح…</div>}><HomePage /></Suspense></div>;
+  return <div className={staff ? "foodhub-staff" : undefined}><Suspense fallback={<OpeningSplash />}><HomePage /></Suspense></div>;
 }
 
 function HomePage() {

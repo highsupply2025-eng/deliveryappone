@@ -5,12 +5,12 @@ export type ThemeMode = "light" | "dark" | "system";
 const STORAGE_THEME_KEY = "foodhub_theme_preference";
 
 export function getInitialTheme(): ThemeMode {
-  if (typeof window === "undefined") return "dark";
+  if (typeof window === "undefined") return "light";
   const saved = localStorage.getItem(STORAGE_THEME_KEY) as ThemeMode | null;
   if (saved && (saved === "light" || saved === "dark" || saved === "system")) {
     return saved;
   }
-  return "dark";
+  return "light";
 }
 
 export function applyTheme(theme: ThemeMode) {

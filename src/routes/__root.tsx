@@ -139,11 +139,10 @@ function RootShell({ children }: { children: ReactNode }) {
               (function() {
                 try {
                   var saved = localStorage.getItem('foodhub_theme_preference');
-                  var isDark = saved === 'dark' || (!saved && window.matchMedia('(prefers-color-scheme: dark)').matches) || (saved === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches);
-                  if (saved === 'light') {
-                    document.documentElement.classList.remove('dark');
-                  } else if (isDark || !saved) {
+                  if (saved === 'dark') {
                     document.documentElement.classList.add('dark');
+                  } else {
+                    document.documentElement.classList.remove('dark');
                   }
                 } catch(e) {}
               })();
