@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { PhoneLogin } from "./phone-login";
 import { StaffOnboarding } from "./staff-onboarding";
 import { LiveOrderMap } from "./live-order-map";
+import { RestaurantMenu } from "./restaurant-menu";
 import { toast } from "sonner";
 
 export function KitchenWork() {
@@ -19,6 +20,7 @@ export function KitchenWork() {
 function Tickets({userId,admin}:{userId:string;admin:boolean}) {
   const qc=useQueryClient();
   const [busy,setBusy]=useState(false);
+  const [tab,setTab]=useState<"orders"|"products"|"offers"|"tracking">("orders");
   useRealtime(["orders","order_items"],["kitchen-live-orders"],"kitchen-live");
   const restaurant=useQuery({queryKey:["kitchen-restaurant",userId],queryFn:async()=>{
     let q=supabase.from("restaurants").select("id,name_ar");if(!admin)q=q.eq("owner_id",userId);
