@@ -342,12 +342,14 @@ function VendorPage() {
       toast.info("يرجى السماح بالنوافذ المنبثقة لطباعة التذكرة");
       return;
     }
+    const esc = (v: unknown) =>
+      String(v ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c] as string);
     const itemsHtml = (order.order_items || [])
       .map(
         (it) =>
           `<div style="display:flex; justify-content:space-between; margin:8px 0; font-size:15px; font-weight:bold;">
-            <span>${it.name_ar}</span>
-            <span style="direction:ltr;">×${it.quantity}</span>
+            <span>${esc(it.name_ar)}</span>
+            <span style="direction:ltr;">×${esc(it.quantity)}</span>
           </div>`
       )
       .join("");
@@ -378,7 +380,7 @@ function VendorPage() {
           <div class="items">
             ${itemsHtml || "<div>وجبة مخصصة</div>"}
           </div>
-          ${order.notes ? `<div class="notes"><strong>ملاحظة الزبون:</strong> ${order.notes}</div>` : ""}
+          ${order.notes ? `<div class="notes"><strong>ملاحظة الزبون:</strong> ${esc(order.notes)}</div>` : ""}
           <div class="footer">تذكرة تحضير الكيتشن ديسبلاي • معيار الشنطة 65°C</div>
           <script>
             window.onload = function() { window.print(); window.close(); }
