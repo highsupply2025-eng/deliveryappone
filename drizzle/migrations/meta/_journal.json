@@ -57,6 +57,13 @@
       "when": 1793459548842,
       "tag": "0007_restaurant_payouts_and_menu_images",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1793459560225,
+      "tag": "0008_menu_images_owner_read",
+      "breakpoints": true
     }
   ]
 }
