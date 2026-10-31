@@ -1,0 +1,2 @@
+CREATE POLICY menu_images_owner_read ON storage.objects FOR SELECT TO authenticated
+USING (bucket_id = 'menu-images' AND (public.has_role(auth.uid(),'admin') OR EXISTS (SELECT 1 FROM public.restaurants r WHERE r.id::text = (storage.foldername(name))[1] AND r.owner_id = auth.uid())));

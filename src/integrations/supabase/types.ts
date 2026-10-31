@@ -338,6 +338,44 @@ export type Database = {
         }
         Relationships: []
       }
+      restaurant_payout_requests: {
+        Row: {
+          amount: number
+          created_at: string
+          id: string
+          requested_by: string
+          restaurant_id: string
+          reviewed_at: string | null
+          status: string
+        }
+        Insert: {
+          amount: number
+          created_at?: string
+          id?: string
+          requested_by: string
+          restaurant_id: string
+          reviewed_at?: string | null
+          status?: string
+        }
+        Update: {
+          amount?: number
+          created_at?: string
+          id?: string
+          requested_by?: string
+          restaurant_id?: string
+          reviewed_at?: string | null
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "restaurant_payout_requests_restaurant_id_fkey"
+            columns: ["restaurant_id"]
+            isOneToOne: false
+            referencedRelation: "restaurants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       restaurants: {
         Row: {
           created_at: string
@@ -493,6 +531,10 @@ export type Database = {
           p_speed?: number
         }
         Returns: undefined
+      }
+      request_restaurant_payout: {
+        Args: { p_restaurant_id: string }
+        Returns: number
       }
       review_courier_break: {
         Args: { p_approve: boolean; p_shift_id: string }
