@@ -14,6 +14,7 @@ import { assignCourierShift } from "@/lib/courier-shifts.functions";
 import { useRealtime } from "@/lib/realtime";
 import { LiveOrderMap } from "@/components/apps/live-order-map";
 import { AdminApplications } from "@/components/apps/admin-applications";
+import { AdminEmailLogin } from "@/components/auth/admin-email-login";
 
 export const Route = createFileRoute("/admin-app")({
   ssr: false,
@@ -65,16 +66,6 @@ function Screen({ children }: { children: React.ReactNode }) {
 }
 
 function Login() {
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [busy, setBusy] = useState(false);
-  const submit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setBusy(true);
-    const { error } = await supabase.auth.signInWithPassword({ email: email.trim(), password });
-    setBusy(false);
-    if (error) toast.error("البريد أو كلمة المرور غير صحيحة");
-  };
   return (
     <Screen>
       <div className="w-full max-w-sm rounded-2xl border bg-card p-6 shadow-sm">
@@ -85,11 +76,7 @@ function Login() {
           <h1 className="text-xl font-bold">FoodHub Admin</h1>
           <p className="text-sm text-muted-foreground">تسجيل دخول الإدارة</p>
         </div>
-        <form onSubmit={submit} className="space-y-3">
-          <Input type="email" placeholder="البريد الإلكتروني" value={email} onChange={(e) => setEmail(e.target.value)} required />
-          <Input type="password" placeholder="كلمة المرور" value={password} onChange={(e) => setPassword(e.target.value)} required />
-          <Button type="submit" className="w-full" disabled={busy}>{busy ? "…" : "دخول"}</Button>
-        </form>
+        <AdminEmailLogin />
       </div>
     </Screen>
   );
