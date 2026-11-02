@@ -530,6 +530,7 @@ export type Database = {
         }
         Returns: boolean
       }
+      norm_area: { Args: { t: string }; Returns: string }
       publish_courier_location: {
         Args: {
           p_accuracy?: number
