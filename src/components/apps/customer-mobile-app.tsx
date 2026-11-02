@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { lazy, Suspense, useEffect, useMemo, useState } from "react";
 import { Link } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
@@ -28,6 +28,8 @@ import { useCart } from "@/lib/cart";
 import { useI18n } from "@/lib/i18n";
 import { useSession } from "@/lib/session";
 import { useRealtime } from "@/lib/realtime";
+import type { PickedLocation } from "./location-picker";
+const LocationPicker = lazy(() => import("./location-picker"));
 import {
   customerCatalog,
   catalogCategories,
@@ -57,6 +59,8 @@ export function CustomerMobileApp() {
   const [search, setSearch] = useState("");
   const [category, setCategory] = useState("all");
   const [address, setAddress] = useState("");
+  const [neighborhood, setNeighborhood] = useState("");
+  const [deliveryLoc, setDeliveryLoc] = useState<PickedLocation | null>(null);
   const [phone, setPhone] = useState("");
   const [notes, setNotes] = useState("");
   const [name, setName] = useState("");
@@ -154,6 +158,11 @@ export function CustomerMobileApp() {
       toast.error(`الحد الأدنى للطلب ${cartRestaurant.min_order} ر.س`);
       return;
     }
+    if (!deliveryLoc || neighborhood.trim().length < 2) {
+      toast.error("حدد الحي وموقع التسليم على الخريطة");
+      setSheet("location");
+      return;
+    }
     setBusy(true);
     try {
       const fresh = await catalog.refetch();
@@ -173,6 +182,9 @@ export function CustomerMobileApp() {
           address: address.trim(),
           phone: phone.trim(),
           notes: notes.trim() || null,
+          delivery_neighborhood: neighborhood.trim(),
+          delivery_latitude: deliveryLoc.latitude,
+          delivery_longitude: deliveryLoc.longitude,
           subtotal: cart.subtotal,
           delivery_fee: Number(cartRestaurant.delivery_fee),
           total,
@@ -645,15 +657,28 @@ export function CustomerMobileApp() {
                   }}
                 >
                   <label>
+                    الحي
+                    <input
+                      required
+                      minLength={2}
+                      value={neighborhood}
+                      onChange={(e) => setNeighborhood(e.target.value)}
+                      placeholder="مثال: العزيزية"
+                    />
+                  </label>
+                  <label>
                     العنوان
                     <input
                       required
                       value={address}
                       onChange={(e) => setAddress(e.target.value)}
-                      placeholder="الحي، الشارع، رقم المبنى"
+                      placeholder="الشارع، رقم المبنى"
                     />
                   </label>
-                  <Button type="submit">تأكيد العنوان</Button>
+                  <Suspense fallback={<p>جارِ تحميل الخريطة…</p>}>
+                    <LocationPicker value={deliveryLoc} onChange={setDeliveryLoc} />
+                  </Suspense>
+                  <Button type="submit" disabled={!deliveryLoc}>تأكيد العنوان</Button>
                 </form>
               )}
               {sheet === "login" && (
