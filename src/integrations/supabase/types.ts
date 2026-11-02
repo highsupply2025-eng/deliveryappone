@@ -378,6 +378,7 @@ export type Database = {
       }
       restaurants: {
         Row: {
+          address: string | null
           created_at: string
           cuisine_ar: string
           cuisine_en: string
@@ -386,6 +387,8 @@ export type Database = {
           id: string
           image_url: string | null
           is_active: boolean
+          latitude: number | null
+          longitude: number | null
           min_order: number
           name_ar: string
           name_en: string
@@ -393,6 +396,7 @@ export type Database = {
           rating: number
         }
         Insert: {
+          address?: string | null
           created_at?: string
           cuisine_ar?: string
           cuisine_en?: string
@@ -401,6 +405,8 @@ export type Database = {
           id?: string
           image_url?: string | null
           is_active?: boolean
+          latitude?: number | null
+          longitude?: number | null
           min_order?: number
           name_ar: string
           name_en: string
@@ -408,6 +414,7 @@ export type Database = {
           rating?: number
         }
         Update: {
+          address?: string | null
           created_at?: string
           cuisine_ar?: string
           cuisine_en?: string
@@ -416,6 +423,8 @@ export type Database = {
           id?: string
           image_url?: string | null
           is_active?: boolean
+          latitude?: number | null
+          longitude?: number | null
           min_order?: number
           name_ar?: string
           name_en?: string
