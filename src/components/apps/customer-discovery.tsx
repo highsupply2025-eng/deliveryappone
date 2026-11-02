@@ -202,7 +202,7 @@ export function CustomerDiscovery(p: Props) {
     return () => clearInterval(timer);
   }, []);
 
-  const currentBanner = promoBanners[slide];
+  const currentBanner = promoBanners[slide % promoBanners.length]!;
 
   // Match category filters with existing categories
   const categoriesList = useMemo(() => {
