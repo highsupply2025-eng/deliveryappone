@@ -140,7 +140,7 @@ function Panel() {
               <p className="mt-1 truncate text-xs text-muted-foreground">{o.address}</p>
               <p className="mt-1 text-sm">{Number(o.total).toFixed(2)} ر.س</p>
               {["ready","on_the_way"].includes(o.status)&&<LiveOrderMap orderId={o.id}/>}
-              {["pending","accepted","preparing","ready"].includes(o.status) && <AdminOrderRouting orderId={o.id} pickup={o.pickup_address} neighborhood={o.delivery_neighborhood} onDone={refresh} />}
+              {false && <AdminOrderRouting orderId={o.id} pickup={o.pickup_address} neighborhood={o.delivery_neighborhood} onDone={refresh} />}
             </div>
           ))
         ) : (
