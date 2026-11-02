@@ -5,7 +5,7 @@ import { Bike, Clock, Coffee, LogOut, MapPin, Navigation, RefreshCw, PackageChec
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { useSession } from "@/lib/session";
-import { courierShiftAction, courierDeliverOrder } from "@/lib/courier-shifts.functions";
+import { courierShiftAction, courierDeliverOrder, courierSetOnline } from "@/lib/courier-shifts.functions";
 import { WORK_SECONDS, workedSeconds, canRequestBreak, canRejectOrder, courierAvailable } from "@/lib/courier-shift-rules";
 import { Button } from "@/components/ui/button";
 import { PhoneLogin } from "./phone-login";
@@ -36,11 +36,18 @@ function CourierWork({userId}:{userId:string}) {
   const [busy,setBusy] = useState(false);
   const [code,setCode] = useState("");
   const deliverFn = useServerFn(courierDeliverOrder);
+  const onlineFn = useServerFn(courierSetOnline);
+  const toggleOnline=async(online:boolean)=>{
+    setBusy(true);
+    try {await onlineFn({data:{online}}); refresh(); toast.success(online?"أنت الآن أونلاين وتستقبل الطلبات":"أنت الآن أوفلاين");}
+    catch(e){toast.error(e instanceof Error?e.message:"تعذر التغيير");} finally{setBusy(false);}
+  };
   const shifts = useQuery({queryKey:["courier-work-shifts",userId],queryFn:async()=>{
     const {data,error} = await supabase.from("courier_shifts").select("*").eq("courier_id",userId).order("scheduled_start",{ascending:false}).limit(30);
     if(error) throw error; return data;
   },refetchInterval:15000});
-  const shift = shifts.data?.find(s=>s.status==="active") ?? shifts.data?.filter(s=>s.status==="scheduled").sort((a,b)=>a.scheduled_start.localeCompare(b.scheduled_start))[0];
+  const shift = shifts.data?.find(s=>s.status==="active");
+  const isOnline = !!shift;
   const orders = useQuery({queryKey:["courier-work-orders",userId],queryFn:async()=>{
     const {data,error} = await supabase.from("orders").select("id,status,address,pickup_address,courier_accepted_at,restaurants(name_ar)").eq("courier_id",userId).in("status",["pending","accepted","preparing","ready","on_the_way"]).order("created_at");
     if(error) throw error; return data;
@@ -78,7 +85,8 @@ function CourierWork({userId}:{userId:string}) {
     <main className="mx-auto max-w-lg space-y-6 p-4">
       {gpsError&&<p role="alert" className="text-sm text-destructive">{gpsError}</p>}
       {(shifts.isError||orders.isError)&&<p role="alert" className="text-destructive">تعذر تحميل البيانات. حاول التحديث.</p>}
-      {!shift?<section className="py-12 text-center"><Clock className="mx-auto mb-3 size-10 text-muted-foreground"/><h2 className="font-bold tracking-normal">غير متاح</h2><p className="mt-3 text-muted-foreground">{shifts.data?.[0]?.status==="completed"?"اكتمل الشيفت؛ يمكنك العودة إلى المنزل":"لا يوجد شيفت محدد"}</p></section>:<>
+      <section className="flex items-center justify-between rounded-2xl border bg-card p-4"><div><p className="font-bold tracking-normal">{isOnline?"أونلاين":"أوفلاين"}</p><p className="text-sm text-muted-foreground">{isOnline?"تستقبل الطلبات الآن":"اضغط أونلاين لاستقبال الطلبات"}</p></div><Button size="lg" variant={isOnline?"outline":"default"} disabled={busy} onClick={()=>void toggleOnline(!isOnline)}><Bike className="size-4"/>{isOnline?"أوفلاين":"أونلاين"}</Button></section>
+      {!shift?<section className="py-12 text-center"><Clock className="mx-auto mb-3 size-10 text-muted-foreground"/><h2 className="font-bold tracking-normal">أوفلاين</h2><p className="mt-3 text-muted-foreground">لن تصلك طلبات حتى تضغط أونلاين</p></section>:<>
         <section className="space-y-3 border-b pb-5">
           <div className="flex items-center justify-between"><h2 className="font-bold tracking-normal">الشيفت</h2><span className="text-sm text-muted-foreground">{available?"متاح":onBreak?"غير متاح — بريك":"غير متاح"}</span></div>
           <p className="text-sm">{new Date(shift.scheduled_start).toLocaleString("ar-SA",{timeZone:"Asia/Riyadh",dateStyle:"medium",timeStyle:"short"})}</p>
@@ -88,7 +96,7 @@ function CourierWork({userId}:{userId:string}) {
           {shift.break_status==="requested"&&<p className="text-sm text-muted-foreground">طلب البريك بانتظار موافقة الإدارة</p>}
           {shift.break_status==="rejected"&&<p className="text-sm text-destructive">لم توافق الإدارة على طلب البريك</p>}
           {work>=WORK_SECONDS&&<p className="text-sm text-muted-foreground">{orders.data?.some(o=>o.status==="on_the_way")?"انتهت ساعات الشيفت؛ سلّم الطلب الحالي ثم يمكنك العودة إلى المنزل":"اكتمل الشيفت؛ يمكنك العودة إلى المنزل"}</p>}
-          {shift.status==="scheduled"?<Button className="w-full" disabled={busy||now<Date.parse(shift.scheduled_start)} onClick={()=>void act("start")}><Bike className="size-4"/>بدء الشيفت</Button>:<Button className="w-full" variant="outline" disabled={busy||onBreak||!canRequestBreak(shift.status,shift.break_status,shift.break_request_used,work)||!!orders.data?.length} onClick={()=>void act("request_break")}><Coffee className="size-4"/>طلب بريك ساعة</Button>}
+          <Button className="w-full" variant="outline" disabled={busy||onBreak||!canRequestBreak(shift.status,shift.break_status,shift.break_request_used,work)||!!orders.data?.length} onClick={()=>void act("request_break")}><Coffee className="size-4"/>طلب بريك ساعة</Button>
         </section>
         <section className="space-y-3"><h2 className="font-bold tracking-normal">الطلب الحالي</h2>
           {!orders.data?.length?<div className="py-8 text-center text-muted-foreground"><PackageCheck className="mx-auto mb-3 size-10"/><p>{onBreak?"أنت في البريك":"لا يوجد طلب حالياً"}</p></div>:orders.data.map(o=><article key={o.id} className="space-y-4 rounded-lg border bg-card p-4">

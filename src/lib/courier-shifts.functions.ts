@@ -40,3 +40,12 @@ export const courierDeliverOrder = createServerFn({method:"POST"})
     if(error) throw new Error(error.message);
     return result as {ok:boolean;remaining?:number};
   });
+
+export const courierSetOnline = createServerFn({method:"POST"})
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) => z.object({online:z.boolean()}).parse(d))
+  .handler(async ({data,context}) => {
+    const {data: result, error} = await context.supabase.rpc("courier_set_online", {p_online:data.online});
+    if(error) throw new Error(error.message);
+    return result as {online:boolean};
+  });
