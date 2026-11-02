@@ -29,7 +29,7 @@ jobs:
       - uses: actions/setup-java@v4
         with:
           distribution: temurin
-          java-version: '21'
+          java-version: "21"
       - run: bun install --frozen-lockfile
       - run: bun test scripts/mobile-apps.test.ts
       - name: Prepare hosted app shell
@@ -68,11 +68,11 @@ jobs:
       matrix:
         include:
           - app: customer
-            display_name: FoodHub Customer
+            display_name: FoodHub
           - app: captain
-            display_name: FoodHub Captain
+            display_name: FoodHub Rider
           - app: kitchen
-            display_name: FoodHub Kitchen
+            display_name: FoodHub Store
           - app: admin
             display_name: FoodHub Admin
     env:
