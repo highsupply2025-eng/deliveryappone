@@ -532,6 +532,7 @@ export type Database = {
         Args: { p_code: string; p_order_id: string }
         Returns: Json
       }
+      courier_set_online: { Args: { p_online: boolean }; Returns: Json }
       courier_shift_action: {
         Args: { p_action: string; p_order_id?: string; p_shift_id: string }
         Returns: Json

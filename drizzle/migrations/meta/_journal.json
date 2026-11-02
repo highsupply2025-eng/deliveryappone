@@ -92,6 +92,13 @@
       "when": 1793585953278,
       "tag": "0012_courier_first_order_flow",
       "breakpoints": true
+    },
+    {
+      "idx": 13,
+      "version": "7",
+      "when": 1793620988434,
+      "tag": "0013_courier_online_toggle",
+      "breakpoints": true
     }
   ]
 }
