@@ -25,7 +25,7 @@ function Form({ restaurantId, initial, onSaved }: { restaurantId: string; initia
   const [busy, setBusy] = useState(false);
   const save = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (address.trim().length < 3 || !loc) return toast.error("اكتب العنوان وحدد الموقع على الخريطة");
+    if (address.trim().length < 3 || !loc) { toast.error("اكتب العنوان وحدد الموقع على الخريطة"); return; }
     setBusy(true);
     const { error } = await supabase.from("restaurants").update({ address: address.trim(), latitude: loc.latitude, longitude: loc.longitude }).eq("id", restaurantId);
     setBusy(false);

@@ -44,7 +44,7 @@ export default function LocationPicker({ value, onChange }: { value: PickedLocat
 
   const gps = () => {
     setGpsError("");
-    if (!navigator.geolocation) return setGpsError("تحديد الموقع غير مدعوم في هذا الجهاز");
+    if (!navigator.geolocation) { setGpsError("تحديد الموقع غير مدعوم في هذا الجهاز"); return; }
     navigator.geolocation.getCurrentPosition(
       (p) => { place(p.coords.latitude, p.coords.longitude, true); change.current({ latitude: p.coords.latitude, longitude: p.coords.longitude }); },
       () => setGpsError("اسمح بالوصول للموقع أو اضغط على الخريطة"),
