@@ -35,7 +35,7 @@ export const Route = createFileRoute("/admin-app")({
 type Tab = "orders" | "customer" | "courier" | "restaurant";
 
 const STATUS_AR: Record<string, string> = {
-  pending: "جديد", accepted: "مقبول", preparing: "تحضير", ready: "جاهز",
+  pending: "بانتظار المندوب", accepted: "تحضير", preparing: "تحضير", ready: "جاهز",
   on_the_way: "في الطريق", delivered: "تم التوصيل", cancelled: "ملغي",
 };
 

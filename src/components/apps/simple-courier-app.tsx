@@ -5,7 +5,7 @@ import { Bike, Clock, Coffee, LogOut, MapPin, Navigation, RefreshCw, PackageChec
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { useSession } from "@/lib/session";
-import { courierShiftAction } from "@/lib/courier-shifts.functions";
+import { courierShiftAction, courierDeliverOrder } from "@/lib/courier-shifts.functions";
 import { WORK_SECONDS, workedSeconds, canRequestBreak, canRejectOrder, courierAvailable } from "@/lib/courier-shift-rules";
 import { Button } from "@/components/ui/button";
 import { PhoneLogin } from "./phone-login";
@@ -34,13 +34,15 @@ function CourierWork({userId}:{userId:string}) {
   const actionFn = useServerFn(courierShiftAction);
   const [now,setNow] = useState(Date.now());
   const [busy,setBusy] = useState(false);
+  const [code,setCode] = useState("");
+  const deliverFn = useServerFn(courierDeliverOrder);
   const shifts = useQuery({queryKey:["courier-work-shifts",userId],queryFn:async()=>{
     const {data,error} = await supabase.from("courier_shifts").select("*").eq("courier_id",userId).order("scheduled_start",{ascending:false}).limit(30);
     if(error) throw error; return data;
   },refetchInterval:15000});
   const shift = shifts.data?.find(s=>s.status==="active") ?? shifts.data?.filter(s=>s.status==="scheduled").sort((a,b)=>a.scheduled_start.localeCompare(b.scheduled_start))[0];
   const orders = useQuery({queryKey:["courier-work-orders",userId],queryFn:async()=>{
-    const {data,error} = await supabase.from("orders").select("id,status,address,pickup_address,restaurants(name_ar)").eq("courier_id",userId).in("status",["ready","on_the_way"]).order("created_at");
+    const {data,error} = await supabase.from("orders").select("id,status,address,pickup_address,courier_accepted_at,restaurants(name_ar)").eq("courier_id",userId).in("status",["pending","accepted","preparing","ready","on_the_way"]).order("created_at");
     if(error) throw error; return data;
   },refetchInterval:10000});
   const refresh = () => void qc.invalidateQueries({predicate:q=>String(q.queryKey[0]).startsWith("courier-work")});
@@ -52,12 +54,17 @@ function CourierWork({userId}:{userId:string}) {
     void sync(); const timer=setInterval(()=>void sync(),15000);
     return ()=>{cancelled=true;clearInterval(timer);};
   },[shift?.id,shift?.status,actionFn]);
-  const act=async(action:"start"|"request_break"|"reject"|"pickup"|"deliver",orderId?:string)=>{
+  const act=async(action:"start"|"request_break"|"reject"|"accept"|"pickup",orderId?:string)=>{
     if(!shift) return;
     if(action==="reject" && !window.confirm("رفض هذا الطلب سيستخدم الرفض الوحيد المتاح خلال الشيفت. هل تؤكد؟")) return;
     setBusy(true);
     try {await actionFn({data:{shift_id:shift.id,action,order_id:orderId}}); refresh();toast.success(action==="request_break"?"أُرسل طلب البريك للإدارة":"تم الحفظ");}
     catch(e){toast.error(e instanceof Error?e.message:"تعذر الحفظ");} finally{setBusy(false);}
+  };
+  const deliver=async(orderId:string)=>{
+    setBusy(true);
+    try {const r=await deliverFn({data:{order_id:orderId,code}}); if(r.ok){setCode("");toast.success("تم تسليم الطلب");refresh();} else toast.error(`الكود غير صحيح — المتبقي ${r.remaining??0} محاولات`);}
+    catch(e){toast.error(e instanceof Error?e.message:"تعذر التسليم");} finally{setBusy(false);}
   };
   const work=shift?.started_at?workedSeconds(Date.parse(shift.started_at),now,shift.break_started_at?Date.parse(shift.break_started_at):undefined,shift.break_ends_at?Date.parse(shift.break_ends_at):undefined):0;
   const onBreak=!!shift?.break_ends_at && now<Date.parse(shift.break_ends_at);
@@ -89,8 +96,11 @@ function CourierWork({userId}:{userId:string}) {
             <Location title={`الاستلام · ${o.restaurants?.name_ar??"المطعم"}`} address={o.pickup_address??"لم تحدد الإدارة موقع الاستلام"}/>
             <Location title="التسليم" address={o.address}/>
             <LiveOrderMap orderId={o.id}/>
-            <Button className="w-full" disabled={busy||onBreak||(o.status==="ready"&&work>=WORK_SECONDS)} onClick={()=>void act(o.status==="ready"?"pickup":"deliver",o.id)}>{o.status==="ready"?"تم استلام الطلب":"تم تسليم الطلب"}</Button>
-            {o.status==="ready"&&<Button className="w-full" variant="outline" disabled={busy||onBreak||!canRejectOrder(shift.rejected_order_id,o.status,work)} onClick={()=>void act("reject",o.id)}>رفض الطلب</Button>}
+            <p className="text-sm text-muted-foreground">{!o.courier_accepted_at?"طلب جديد — اقبله ليبدأ المطعم التحضير":o.status==="on_the_way"?"في الطريق للعميل":o.status==="ready"?"الطلب جاهز في المطعم":"المطعم يحضّر الطلب"}</p>
+            {!o.courier_accepted_at?<Button className="w-full" disabled={busy||onBreak||work>=WORK_SECONDS} onClick={()=>void act("accept",o.id)}>قبول الطلب</Button>
+            :o.status!=="on_the_way"?<Button className="w-full" disabled={busy||onBreak||work>=WORK_SECONDS} onClick={()=>void act("pickup",o.id)}>تم استلام الطلب من المطعم</Button>
+            :<div className="space-y-2"><label className="block text-sm font-medium" htmlFor={`code-${o.id}`}>كود العميل</label><input id={`code-${o.id}`} inputMode="numeric" maxLength={4} dir="ltr" value={code} onChange={e=>setCode(e.target.value.replace(/\D/g,""))} className="w-full rounded-md border bg-background p-3 text-center text-2xl tracking-[0.5em]" placeholder="••••"/><Button className="w-full" disabled={busy||code.length!==4} onClick={()=>void deliver(o.id)}>تسليم الطلب</Button></div>}
+            {o.status!=="on_the_way"&&<Button className="w-full" variant="outline" disabled={busy||onBreak||!canRejectOrder(shift.rejected_order_id,o.status,work)} onClick={()=>void act("reject",o.id)}>رفض الطلب</Button>}
           </article>)}
         </section>
       </>}

@@ -96,7 +96,7 @@ export function CustomerMobileApp() {
       if (!user) return null;
       const { data, error } = await supabase
         .from("profiles")
-        .select("full_name,phone")
+        .select("full_name,phone,delivery_code")
         .eq("id", user.id)
         .maybeSingle();
       if (error) throw error;
@@ -481,7 +481,8 @@ export function CustomerMobileApp() {
                         : "Welcome to FoodHub"}
                   </h1>
                   {user ? (
-                    <p>{profile.data?.phone || user.email}</p>
+                    <><p>{profile.data?.phone || user.email}</p>
+                  {profile.data?.delivery_code && <p>كود التسليم: <strong dir="ltr">{profile.data.delivery_code}</strong></p>}</>
                   ) : (
                     <p>سجّل دخولك لمتابعة طلباتك</p>
                   )}

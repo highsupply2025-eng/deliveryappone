@@ -3,7 +3,7 @@ import { z } from "zod";
 export const WORK_SECONDS = 10 * 60 * 60;
 export const BREAK_SECONDS = 60 * 60;
 export const canRequestBreak = (status: string, breakStatus: string, used: boolean, seconds: number) => status === "active" && breakStatus === "none" && !used && seconds < WORK_SECONDS;
-export const canRejectOrder = (rejectedOrderId: string | null, orderStatus: string, seconds: number) => rejectedOrderId === null && orderStatus === "ready" && seconds < WORK_SECONDS;
+export const canRejectOrder = (rejectedOrderId: string | null, orderStatus: string, seconds: number) => rejectedOrderId === null && ["pending","accepted","preparing","ready"].includes(orderStatus) && seconds < WORK_SECONDS;
 export const courierAvailable = (status: string, seconds: number, onBreak: boolean) => status === "active" && seconds < WORK_SECONDS && !onBreak;
 export const shiftAssignmentSchema = z.object({
   courier_id: z.string().uuid(),

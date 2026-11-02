@@ -25,3 +25,5 @@
 - Managed authentication email routes retain SDK verification and all six action types; signup and magiclink share a branded code-only template using the hosted token, so native users verify inside their original app without redirect links.
 - Both admin sign-in surfaces share an existing-account-only Cloud email OTP form and revalidate the user and stored admin role; OTP lifetime remains a hosted Auth setting rather than a custom generator or client-only deadline.
 - Orders inherit pickup address/coordinates from the restaurant row via DB triggers and are auto-dispatched by a BEFORE UPDATE trigger when they become ready; never rely on admins typing pickup locations, since that left orders undispatched.
+
+- Orders are offered to a courier first; restaurants only see orders after courier acceptance, and delivery completes only via the courier_deliver_order RPC checking the customer's permanent code (attempt-limited) so couriers cannot mark delivery without the customer.
