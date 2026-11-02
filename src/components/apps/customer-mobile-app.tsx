@@ -481,8 +481,8 @@ export function CustomerMobileApp() {
                         : "Welcome to FoodHub"}
                   </h1>
                   {user ? (
-                    <p>{profile.data?.phone || user.email}</p>
-                  {profile.data?.delivery_code && <p>كود التسليم: <strong dir="ltr">{profile.data.delivery_code}</strong></p>}
+                    <><p>{profile.data?.phone || user.email}</p>
+                  {profile.data?.delivery_code && <p>كود التسليم: <strong dir="ltr">{profile.data.delivery_code}</strong></p>}</>
                   ) : (
                     <p>سجّل دخولك لمتابعة طلباتك</p>
                   )}
