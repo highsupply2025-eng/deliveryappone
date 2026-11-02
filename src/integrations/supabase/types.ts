@@ -246,9 +246,11 @@ export type Database = {
       orders: {
         Row: {
           address: string
+          courier_accepted_at: string | null
           courier_id: string | null
           created_at: string
           customer_id: string
+          delivery_code_attempts: number
           delivery_fee: number
           delivery_latitude: number | null
           delivery_longitude: number | null
@@ -267,9 +269,11 @@ export type Database = {
         }
         Insert: {
           address: string
+          courier_accepted_at?: string | null
           courier_id?: string | null
           created_at?: string
           customer_id: string
+          delivery_code_attempts?: number
           delivery_fee?: number
           delivery_latitude?: number | null
           delivery_longitude?: number | null
@@ -288,9 +292,11 @@ export type Database = {
         }
         Update: {
           address?: string
+          courier_accepted_at?: string | null
           courier_id?: string | null
           created_at?: string
           customer_id?: string
+          delivery_code_attempts?: number
           delivery_fee?: number
           delivery_latitude?: number | null
           delivery_longitude?: number | null
@@ -320,18 +326,21 @@ export type Database = {
       profiles: {
         Row: {
           created_at: string
+          delivery_code: string | null
           full_name: string
           id: string
           phone: string | null
         }
         Insert: {
           created_at?: string
+          delivery_code?: string | null
           full_name?: string
           id: string
           phone?: string | null
         }
         Update: {
           created_at?: string
+          delivery_code?: string | null
           full_name?: string
           id?: string
           phone?: string | null
@@ -519,6 +528,10 @@ export type Database = {
     }
     Functions: {
       complete_due_courier_shifts: { Args: never; Returns: undefined }
+      courier_deliver_order: {
+        Args: { p_code: string; p_order_id: string }
+        Returns: Json
+      }
       courier_shift_action: {
         Args: { p_action: string; p_order_id?: string; p_shift_id: string }
         Returns: Json
@@ -531,6 +544,10 @@ export type Database = {
         Returns: boolean
       }
       norm_area: { Args: { t: string }; Returns: string }
+      pick_courier_for_order: {
+        Args: { p_neighborhood: string; p_order_id: string }
+        Returns: string
+      }
       publish_courier_location: {
         Args: {
           p_accuracy?: number
