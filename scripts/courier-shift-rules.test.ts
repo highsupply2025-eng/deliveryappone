@@ -11,6 +11,7 @@ describe("courier employment", () => {
     expect(canRejectOrder(null,"ready",100)).toBe(true);
     expect(canRejectOrder("first-rejected-order","ready",100)).toBe(false);
     expect(canRejectOrder(null,"on_the_way",100)).toBe(false);
+    expect(canRejectOrder(null,"pending",100)).toBe(true);
   });
   test("availability stops at ten working hours and during the single break", () => {
     expect(courierAvailable("active",35999,false)).toBe(true);
