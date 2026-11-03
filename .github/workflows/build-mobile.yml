@@ -77,9 +77,10 @@ jobs:
           fi
 
           export ANDROID_KEYSTORE_PATH="$KEYSTORE_FILE"
+          yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --licenses >/dev/null 2>&1 || true
           chmod +x gradlew
           variant="${FOODHUB_APP^}"
-          ./gradlew "assemble${variant}Release" --no-daemon
+          ./gradlew "assemble${variant}Release" --no-daemon --stacktrace
 
           bt="$ANDROID_HOME/build-tools/$(ls "$ANDROID_HOME/build-tools" | sort -V | tail -1)"
           target_apk="app/build/outputs/apk/${FOODHUB_APP}/release/app-${FOODHUB_APP}-release.apk"
@@ -94,13 +95,20 @@ jobs:
               --out "$target_apk" "$unsigned_apk"
           fi
 
-          echo "Verifying final release APK:"
-          "$bt/apksigner" verify --print-certs "$target_apk"
+          if [ -f "$target_apk" ]; then
+            echo "Verifying final release APK:"
+            "$bt/apksigner" verify --print-certs "$target_apk"
+          else
+            echo "::error::Target APK was not produced at $target_apk"
+            ls -la "app/build/outputs/apk/${FOODHUB_APP}/" || true
+            exit 1
+          fi
       - uses: actions/upload-artifact@v4
+        if: always()
         with:
           name: FoodHub-${{ matrix.app }}-Android-Release-APK
-          path: android/app/build/outputs/apk/${{ matrix.app }}/release/app-${{ matrix.app }}-release.apk
-          if-no-files-found: error
+          path: android/app/build/outputs/apk/${{ matrix.app }}/release/
+          if-no-files-found: warn
           retention-days: 30
 
   build-ios:
