@@ -683,7 +683,16 @@ export function CustomerMobileApp() {
                 </form>
               )}
               {sheet === "login" && (
-                <PhoneLogin onComplete={() => setSheet(null)} />
+                <div className="mx-auto w-full max-w-sm rounded-2xl border bg-card p-6 shadow-sm">
+                  <div className="mb-6 flex flex-col items-center gap-2 text-center">
+                    <div className="flex size-14 items-center justify-center rounded-2xl bg-primary text-primary-foreground">
+                      <User className="size-7" />
+                    </div>
+                    <h2 className="text-xl font-bold">FoodHub</h2>
+                    <p className="text-sm text-muted-foreground">تسجيل دخول العميل</p>
+                  </div>
+                  <PhoneLogin onComplete={() => setSheet(null)} />
+                </div>
               )}
               {sheet === "info" && (
                 <form className="customer-form" onSubmit={save}>

@@ -18,11 +18,18 @@ const duration = (seconds: number) => `${Math.floor(seconds/3600).toString().pad
 
 export function SimpleCourierApp() {
   const {user,role,loading} = useSession();
-  if(loading) return <div dir="rtl" className="min-h-screen bg-background p-6 text-foreground">جارِ التحميل…</div>;
-  if(!user) return <div dir="rtl" className="flex min-h-screen flex-col items-center justify-center bg-background p-6 text-foreground">
-    <img src="/app-logo.png" alt="FoodHub" className="mb-5 size-16 object-contain" />
-    <h1 className="mb-8 text-2xl font-bold tracking-normal">FoodHub المندوب</h1>
-    <div className="w-full max-w-sm"><PhoneLogin /></div>
+  if(loading) return <div dir="rtl" className="foodhub-staff flex min-h-screen flex-col items-center justify-center bg-background p-6 text-foreground"><p className="text-muted-foreground">جارِ التحميل…</p></div>;
+  if(!user) return <div dir="rtl" className="foodhub-staff flex min-h-screen flex-col items-center justify-center bg-background p-6 text-foreground">
+    <div className="w-full max-w-sm rounded-2xl border bg-card p-6 shadow-sm">
+      <div className="mb-6 flex flex-col items-center gap-2 text-center">
+        <div className="flex size-14 items-center justify-center rounded-2xl bg-primary text-primary-foreground">
+          <Bike className="size-7" />
+        </div>
+        <h1 className="text-xl font-bold">FoodHub Rider</h1>
+        <p className="text-sm text-muted-foreground">تسجيل دخول المندوب</p>
+      </div>
+      <PhoneLogin />
+    </div>
   </div>;
   if(role!=="courier") return <StaffOnboarding userId={user.id} type="courier" />;
   return <CourierWork userId={user.id} />;

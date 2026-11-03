@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { Store } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useSession } from "@/lib/session";
 import { useRealtime } from "@/lib/realtime";
@@ -14,8 +15,19 @@ import { toast } from "sonner";
 
 export function KitchenWork() {
   const {user,role,loading}=useSession();
-  if(loading)return <p className="p-6 text-muted-foreground">جارِ الفتح…</p>;
-  if(!user)return <div dir="rtl" className="flex min-h-screen items-center justify-center bg-background p-6 text-foreground"><div className="w-full max-w-sm space-y-5"><img src="/app-logo.png" alt="FoodHub" className="size-16"/><h1 className="text-xl font-bold">FoodHub المطعم</h1><PhoneLogin /></div></div>;
+  if(loading)return <div dir="rtl" className="foodhub-staff flex min-h-screen flex-col items-center justify-center bg-background p-6 text-foreground"><p className="text-muted-foreground">جارِ التحميل…</p></div>;
+  if(!user)return <div dir="rtl" className="foodhub-staff flex min-h-screen flex-col items-center justify-center bg-background p-6 text-foreground">
+    <div className="w-full max-w-sm rounded-2xl border bg-card p-6 shadow-sm">
+      <div className="mb-6 flex flex-col items-center gap-2 text-center">
+        <div className="flex size-14 items-center justify-center rounded-2xl bg-primary text-primary-foreground">
+          <Store className="size-7" />
+        </div>
+        <h1 className="text-xl font-bold">FoodHub Store</h1>
+        <p className="text-sm text-muted-foreground">تسجيل دخول المطعم</p>
+      </div>
+      <PhoneLogin />
+    </div>
+  </div>;
   if(role!=="restaurant"&&role!=="admin")return <StaffOnboarding userId={user.id} type="restaurant" />;
   return <Tickets userId={user.id} admin={role==="admin"}/>;
 }
