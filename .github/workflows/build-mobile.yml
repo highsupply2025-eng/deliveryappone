@@ -30,6 +30,14 @@ jobs:
         with:
           distribution: temurin
           java-version: "21"
+      - name: Setup Android SDK 36
+        uses: android-actions/setup-android@v4
+        with:
+          sdk-version: 36
+      - name: Ensure Android SDK 36 Platform
+        run: |
+          yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --licenses >/dev/null 2>&1 || true
+          echo "y" | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --install "platforms;android-36" >/dev/null 2>&1 || true
       - run: bun install --frozen-lockfile
       - run: bun test scripts/mobile-apps.test.ts
       - name: Prepare hosted app shell
