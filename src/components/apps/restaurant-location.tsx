@@ -16,7 +16,17 @@ export function RestaurantLocation({ restaurantId }: { restaurantId: string }) {
   } });
   if (q.isPending) return <p>جارِ التحميل…</p>;
   if (q.isError) return <p role="alert" className="text-destructive">تعذر تحميل موقع المطعم</p>;
-  return <Form key={restaurantId} restaurantId={restaurantId} initial={q.data} onSaved={() => void qc.invalidateQueries({ queryKey: ["restaurant-location"] })} />;
+  return (
+    <Form
+      key={restaurantId}
+      restaurantId={restaurantId}
+      initial={q.data}
+      onSaved={() => {
+        void qc.invalidateQueries({ queryKey: ["restaurant-location"] });
+        void qc.invalidateQueries({ queryKey: ["kitchen-restaurant"] });
+      }}
+    />
+  );
 }
 
 function Form({ restaurantId, initial, onSaved }: { restaurantId: string; initial: { address: string | null; latitude: number | null; longitude: number | null }; onSaved: () => void }) {

@@ -219,11 +219,38 @@ export function CustomerDiscovery(p: Props) {
     });
   }, [p.categories]);
 
-  const restaurants = p.restaurants.filter(
-    (r) =>
-      (!p.search || `${r.name_ar} ${r.name_en}`.toLowerCase().includes(p.search.toLowerCase())) &&
-      (p.category === "all" || p.meals.some((m) => m.restaurant_id === r.id)),
-  );
+  const restaurants = useMemo(() => {
+    const base = p.restaurants.filter(
+      (r) =>
+        (!p.search || `${r.name_ar} ${r.name_en}`.toLowerCase().includes(p.search.toLowerCase())) &&
+        (p.category === "all" || p.meals.some((m) => m.restaurant_id === r.id)) &&
+        (activeFilter !== "free" || Number(r.delivery_fee) === 0),
+    );
+    if (activeFilter === "fast") {
+      return [...base].sort((a, b) => Number(a.eta_minutes || 25) - Number(b.eta_minutes || 25));
+    }
+    return base;
+  }, [p.restaurants, p.search, p.category, p.meals, activeFilter]);
+
+  const displayedMeals = useMemo(() => {
+    const restMap = new Map(p.restaurants.map((r) => [r.id, r]));
+    let list = p.meals;
+    if (activeFilter === "free") {
+      list = list.filter((m) => {
+        const r = restMap.get(m.restaurant_id);
+        return !r || Number(r.delivery_fee) === 0;
+      });
+    } else if (activeFilter === "fast") {
+      list = [...list].sort((a, b) => {
+        const etaA = Number(restMap.get(a.restaurant_id)?.eta_minutes || 25);
+        const etaB = Number(restMap.get(b.restaurant_id)?.eta_minutes || 25);
+        return etaA - etaB;
+      });
+    } else if (activeFilter === "popular") {
+      list = [...list].sort((a, b) => Number(Boolean(b.image_url)) - Number(Boolean(a.image_url)));
+    }
+    return list;
+  }, [p.meals, p.restaurants, activeFilter]);
 
   return (
     <div className="customer-discovery pb-8">
@@ -410,7 +437,15 @@ export function CustomerDiscovery(p: Props) {
               <div
                 key={sr.id}
                 className="w-56 shrink-0 bg-white rounded-2xl border border-slate-100 shadow-sm hover:shadow-md transition-all overflow-hidden cursor-pointer group"
-                onClick={p.onBrowse}
+                onClick={() => {
+                  const match = p.restaurants.find(
+                    (r) =>
+                      r.name_ar.includes(sr.nameAr) ||
+                      (r.name_en && r.name_en.toLowerCase().includes(sr.nameEn.toLowerCase())),
+                  );
+                  if (match) p.onRestaurant(match);
+                  else p.onBrowse();
+                }}
               >
                 <div className="h-28 w-full relative overflow-hidden bg-slate-100">
                   <img
@@ -483,7 +518,7 @@ export function CustomerDiscovery(p: Props) {
                     <h2 className="text-base font-black text-slate-900 tracking-tight flex items-center gap-2">
                       <span>{p.ar ? "الوجبات الأكثر طلباً" : "Popular Dishes"}</span>
                       <span className="px-2 py-0.5 rounded-full text-xs font-bold bg-amber-100 text-amber-800">
-                        {p.meals.length}
+                        {displayedMeals.length}
                       </span>
                     </h2>
                     <p className="text-xs text-slate-500">
@@ -492,7 +527,7 @@ export function CustomerDiscovery(p: Props) {
                   </div>
                 </div>
 
-                {p.meals.length === 0 ? (
+                {displayedMeals.length === 0 ? (
                   <div className="py-12 text-center bg-slate-50 rounded-2xl border border-dashed border-slate-200">
                     <UtensilsCrossed className="w-10 h-10 text-slate-300 mx-auto mb-2" />
                     <p className="text-sm font-bold text-slate-600">
@@ -504,7 +539,7 @@ export function CustomerDiscovery(p: Props) {
                   </div>
                 ) : (
                   <div className="grid grid-cols-2 gap-3.5 sm:gap-4">
-                    {p.meals.map((m) => {
+                    {displayedMeals.map((m) => {
                       const mealImg = getMealImage(m);
                       const rest = p.restaurants.find((r) => r.id === m.restaurant_id);
                       return (
