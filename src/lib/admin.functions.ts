@@ -253,13 +253,26 @@ export const listAccounts = createServerFn({ method: "GET" })
   .handler(async ({ context }) => {
     await assertAdmin(context as unknown as AuthedContext);
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-    const [usersRes, rolesRes, appsRes, profilesRes, deliveredRes] = await Promise.all([
+    const [usersRes, rolesRes, appsRes, profilesRes, deliveredRes, shiftsRes] = await Promise.all([
       supabaseAdmin.auth.admin.listUsers({ page: 1, perPage: 200 }),
       supabaseAdmin.from("user_roles").select("user_id, role"),
       supabaseAdmin.from("staff_applications").select("*").order("created_at", { ascending: false }),
       supabaseAdmin.from("profiles").select("id, full_name, phone"),
       supabaseAdmin.from("orders").select("courier_id").eq("status", "delivered").not("courier_id", "is", null),
+      supabaseAdmin.from("courier_shifts").select("courier_id, neighborhoods, scheduled_start").order("scheduled_start", { ascending: false }),
     ]);
+
+    const shiftNeighborhoodsMap = new Map<string, string[]>();
+    for (const s of shiftsRes.data ?? []) {
+      if (
+        !shiftNeighborhoodsMap.has(s.courier_id) &&
+        Array.isArray(s.neighborhoods) &&
+        s.neighborhoods.length === 3 &&
+        !s.neighborhoods.includes("الأقرب للمطعم")
+      ) {
+        shiftNeighborhoodsMap.set(s.courier_id, s.neighborhoods);
+      }
+    }
 
     const roleMap = new Map<string, string>();
     for (const r of rolesRes.data ?? []) {
@@ -336,6 +349,14 @@ export const listAccounts = createServerFn({ method: "GET" })
                 ? "approved"
                 : (meta["status"] as string) || "approved";
 
+      const metaNeighborhoods = Array.isArray(meta["neighborhoods"])
+        ? (meta["neighborhoods"] as string[]).filter((x) => typeof x === "string" && x.trim().length > 0)
+        : [];
+      const courierNeighborhoods =
+        metaNeighborhoods.length === 3
+          ? metaNeighborhoods
+          : shiftNeighborhoodsMap.get(u.id) ?? [];
+
       return {
         id: u.id,
         email: u.email ?? "",
@@ -358,7 +379,72 @@ export const listAccounts = createServerFn({ method: "GET" })
         identity_violation_photo: (meta["identity_violation_photo"] as string) || null,
         identity_violation_at: (meta["identity_violation_at"] as string) || null,
         completed_orders_count: deliveredCountMap.get(u.id) ?? 0,
+        neighborhoods: courierNeighborhoods,
         created_at: u.created_at,
       };
     });
+  });
+
+export const setCourierNeighborhoods = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) =>
+    z
+      .object({
+        courier_id: z.string().uuid(),
+        neighborhoods: z
+          .array(z.string().trim().min(2, "اسم الحي قصير جداً").max(100))
+          .length(3, "يجب تحديد 3 أحياء للمندوب")
+          .refine((areas) => new Set(areas).size === 3, "الأحياء الثلاثة يجب أن تكون مختلفة"),
+      })
+      .parse(d),
+  )
+  .handler(async ({ data, context }) => {
+    await assertAdmin(context as unknown as AuthedContext);
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+
+    const { data: existing, error: fetchError } = await supabaseAdmin.auth.admin.getUserById(
+      data.courier_id,
+    );
+    if (fetchError || !existing?.user) throw new Error("المندوب غير موجود");
+
+    const prevMeta = (existing.user.user_metadata ?? {}) as Record<string, unknown>;
+    const { error: metaError } = await supabaseAdmin.auth.admin.updateUserById(data.courier_id, {
+      user_metadata: {
+        ...prevMeta,
+        neighborhoods: data.neighborhoods,
+      },
+    });
+    if (metaError) throw new Error(metaError.message);
+
+    // Also update any active/scheduled shift in courier_shifts or create a scheduled row
+    // so both web and native RPCs find the 3 neighborhoods immediately
+    const { data: currentShifts } = await supabaseAdmin
+      .from("courier_shifts")
+      .select("id, status")
+      .eq("courier_id", data.courier_id)
+      .in("status", ["active", "scheduled"])
+      .order("scheduled_start", { ascending: false });
+
+    if (currentShifts && currentShifts.length > 0) {
+      for (const s of currentShifts) {
+        await supabaseAdmin
+          .from("courier_shifts")
+          .update({
+            neighborhoods: data.neighborhoods,
+            adjacent_confirmed: true,
+          })
+          .eq("id", s.id);
+      }
+    } else {
+      await supabaseAdmin.from("courier_shifts").insert({
+        courier_id: data.courier_id,
+        created_by: context.userId,
+        scheduled_start: new Date().toISOString(),
+        neighborhoods: data.neighborhoods,
+        adjacent_confirmed: true,
+        status: "scheduled",
+      });
+    }
+
+    return { ok: true, neighborhoods: data.neighborhoods };
   });

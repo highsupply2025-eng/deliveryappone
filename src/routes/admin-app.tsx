@@ -20,6 +20,7 @@ import {
   Phone,
   Mail,
   Car,
+  MapPin,
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import {
@@ -28,6 +29,7 @@ import {
   updateAccount,
   deleteAccount,
   setCourierApprovalStatus,
+  setCourierNeighborhoods,
 } from "@/lib/admin.functions";
 import { useSession } from "@/lib/session";
 import { Button } from "@/components/ui/button";
@@ -396,53 +398,87 @@ function CourierListSection({
                     <span>🛵 {c.vehicle === "motorcycle" ? "دباب" : "سيارة"}</span>
                     <span>• أنجز {c.completed_orders_count ?? 0} طلب</span>
                   </div>
+                  <div className="mt-2 flex flex-wrap items-center gap-1.5 text-xs">
+                    {c.neighborhoods && c.neighborhoods.length === 3 ? (
+                      <>
+                        <span className="inline-flex items-center gap-1 font-semibold text-primary">
+                          <MapPin className="size-3.5" />
+                          أحياء العمل:
+                        </span>
+                        {c.neighborhoods.map((area) => (
+                          <span
+                            key={area}
+                            className="rounded-md bg-secondary px-2 py-0.5 font-medium text-foreground"
+                          >
+                            {area}
+                          </span>
+                        ))}
+                      </>
+                    ) : (
+                      <span className="inline-flex items-center gap-1 rounded-md bg-amber-500/15 px-2 py-0.5 font-semibold text-amber-700">
+                        <MapPin className="size-3.5" />
+                        لم تحدد الأحياء الثلاثة بعد — اضغط لتحديدها
+                      </span>
+                    )}
+                  </div>
                 </button>
 
-                {/* Quick Action Icons: Approve, Reject, Edit/Open, Delete */}
-                <div className="flex items-center gap-1 shrink-0">
+                {/* Quick Action Icons: Approve, Reject, Add Neighborhoods, Edit/Open, Delete */}
+                <div className="flex flex-col items-end gap-1.5 shrink-0">
+                  <div className="flex items-center gap-1">
+                    <Button
+                      size="icon"
+                      variant={c.status === "approved" ? "default" : "outline"}
+                      className="size-8"
+                      disabled={isBusy}
+                      title="موافقة / تفعيل"
+                      aria-label="موافقة"
+                      onClick={() => void handleApproval(c, true)}
+                    >
+                      <Check className="size-4" />
+                    </Button>
+                    <Button
+                      size="icon"
+                      variant={c.status === "rejected" ? "destructive" : "outline"}
+                      className="size-8"
+                      disabled={isBusy}
+                      title="رفض / إيقاف"
+                      aria-label="رفض"
+                      onClick={() => void handleApproval(c, false)}
+                    >
+                      <X className="size-4" />
+                    </Button>
+                    <Button
+                      size="icon"
+                      variant="outline"
+                      className="size-8"
+                      disabled={isBusy}
+                      title="تعديل وعرض صفحة المندوب"
+                      aria-label="تعديل"
+                      onClick={() => onSelect(c.id)}
+                    >
+                      <Pencil className="size-4" />
+                    </Button>
+                    <Button
+                      size="icon"
+                      variant="outline"
+                      className="size-8 text-destructive hover:bg-destructive/10"
+                      disabled={isBusy}
+                      title="حذف المندوب"
+                      aria-label="حذف"
+                      onClick={() => void handleDelete(c)}
+                    >
+                      <Trash2 className="size-4" />
+                    </Button>
+                  </div>
                   <Button
-                    size="icon"
-                    variant={c.status === "approved" ? "default" : "outline"}
-                    className="size-8"
-                    disabled={isBusy}
-                    title="موافقة / تفعيل"
-                    aria-label="موافقة"
-                    onClick={() => void handleApproval(c, true)}
-                  >
-                    <Check className="size-4" />
-                  </Button>
-                  <Button
-                    size="icon"
-                    variant={c.status === "rejected" ? "destructive" : "outline"}
-                    className="size-8"
-                    disabled={isBusy}
-                    title="رفض / إيقاف"
-                    aria-label="رفض"
-                    onClick={() => void handleApproval(c, false)}
-                  >
-                    <X className="size-4" />
-                  </Button>
-                  <Button
-                    size="icon"
-                    variant="outline"
-                    className="size-8"
-                    disabled={isBusy}
-                    title="تعديل وعرض صفحة المندوب"
-                    aria-label="تعديل"
+                    size="sm"
+                    variant={c.neighborhoods && c.neighborhoods.length === 3 ? "outline" : "default"}
+                    className="h-7 gap-1 px-2.5 text-xs"
                     onClick={() => onSelect(c.id)}
                   >
-                    <Pencil className="size-4" />
-                  </Button>
-                  <Button
-                    size="icon"
-                    variant="outline"
-                    className="size-8 text-destructive hover:bg-destructive/10"
-                    disabled={isBusy}
-                    title="حذف المندوب"
-                    aria-label="حذف"
-                    onClick={() => void handleDelete(c)}
-                  >
-                    <Trash2 className="size-4" />
+                    <MapPin className="size-3.5" />
+                    {c.neighborhoods && c.neighborhoods.length === 3 ? "تعديل الأحياء (3)" : "+ إضافة الأحياء (3)"}
                   </Button>
                 </div>
               </div>
@@ -466,8 +502,16 @@ function CourierDetailPage({
   onChanged: () => void;
 }) {
   const [editing, setEditing] = useState(false);
+  const [editingNeighborhoods, setEditingNeighborhoods] = useState(
+    !courier.neighborhoods || courier.neighborhoods.length < 3,
+  );
   const [busy, setBusy] = useState(false);
   const [reason, setReason] = useState(courier.rejection_reason ?? "");
+  const [areas, setAreas] = useState<[string, string, string]>([
+    courier.neighborhoods?.[0] ?? "",
+    courier.neighborhoods?.[1] ?? "",
+    courier.neighborhoods?.[2] ?? "",
+  ]);
   const [form, setForm] = useState({
     full_name: courier.full_name || "",
     email: courier.email || "",
@@ -479,6 +523,36 @@ function CourierDetailPage({
   const updateFn = useServerFn(updateAccount);
   const deleteFn = useServerFn(deleteAccount);
   const decideFn = useServerFn(setCourierApprovalStatus);
+  const saveNeighborhoodsFn = useServerFn(setCourierNeighborhoods);
+
+  const saveNeighborhoods = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const cleaned = areas.map((a) => a.trim()) as [string, string, string];
+    if (cleaned.some((a) => a.length < 2)) {
+      toast.error("يرجى إدخال أسماء الأحياء الثلاثة للمندوب");
+      return;
+    }
+    if (new Set(cleaned).size !== 3) {
+      toast.error("الأحياء الثلاثة يجب أن تكون مختلفة");
+      return;
+    }
+    setBusy(true);
+    try {
+      await saveNeighborhoodsFn({
+        data: {
+          courier_id: courier.id,
+          neighborhoods: cleaned,
+        },
+      });
+      toast.success("تم حفظ الأحياء الثلاثة للمندوب بنجاح ويمكنه الآن الدخول أونلاين");
+      setEditingNeighborhoods(false);
+      onChanged();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "تعذر حفظ الأحياء الثلاثة");
+    } finally {
+      setBusy(false);
+    }
+  };
 
   const viewDocument = async (path: string) => {
     const { data, error } = await supabase.storage.from("onboarding-documents").createSignedUrl(path, 60);
@@ -678,6 +752,19 @@ function CourierDetailPage({
           </Button>
         </div>
 
+        {/* Add/Edit 3 Neighborhoods Button */}
+        <Button
+          type="button"
+          variant={editingNeighborhoods ? "default" : "outline"}
+          className="w-full gap-2 font-bold"
+          onClick={() => setEditingNeighborhoods((v) => !v)}
+        >
+          <MapPin className="size-4" />
+          {courier.neighborhoods && courier.neighborhoods.length === 3
+            ? "تعديل أحياء عمل المندوب الثلاثة"
+            : "+ إضافة أحياء عمل المندوب الثلاثة (مطلوب للعمل أونلاين)"}
+        </Button>
+
         {/* Optional Rejection Reason Input */}
         <div className="space-y-1.5 pt-1">
           <Input
@@ -690,6 +777,120 @@ function CourierDetailPage({
             <p className="text-xs text-destructive">سبب الرفض المسجل: {courier.rejection_reason}</p>
           )}
         </div>
+      </div>
+
+      {/* 3 Neighborhoods Card (Admin-Assigned) */}
+      <div className="rounded-2xl border bg-card p-5 space-y-3 shadow-xs">
+        <div className="flex items-center justify-between border-b pb-2">
+          <h3 className="font-bold text-sm flex items-center gap-1.5">
+            <MapPin className="size-4 text-primary" />
+            أحياء عمل المندوب الثلاثة (تحدد عن طريق الأدمن)
+          </h3>
+          <Button
+            type="button"
+            size="sm"
+            variant={editingNeighborhoods ? "outline" : "default"}
+            onClick={() => setEditingNeighborhoods((v) => !v)}
+            className="h-7 gap-1 text-xs"
+          >
+            <Plus className="size-3.5" />
+            {editingNeighborhoods
+              ? "إغلاق النموذج"
+              : courier.neighborhoods && courier.neighborhoods.length === 3
+                ? "تعديل الأحياء"
+                : "إضافة الأحياء الثلاثة"}
+          </Button>
+        </div>
+
+        {courier.neighborhoods && courier.neighborhoods.length === 3 ? (
+          <div className="flex flex-wrap gap-2">
+            {courier.neighborhoods.map((area, idx) => (
+              <span
+                key={area}
+                className="inline-flex items-center gap-1.5 rounded-xl border border-primary/30 bg-primary/10 px-3 py-1.5 text-xs font-bold"
+              >
+                <span className="flex size-5 items-center justify-center rounded-full bg-primary text-[10px] text-primary-foreground">
+                  {idx + 1}
+                </span>
+                {area}
+              </span>
+            ))}
+          </div>
+        ) : (
+          <div className="rounded-xl border border-amber-500/40 bg-amber-500/10 p-3 text-xs text-amber-800 font-medium">
+            ⚠️ لم يتم تحديد الأحياء الثلاثة لهذا المندوب بعد. يرجى إدخال الأحياء الثلاثة بالأسفل وحفظها ليتمكن المندوب من الدخول «أونلاين».
+          </div>
+        )}
+
+        {editingNeighborhoods && (
+          <form onSubmit={saveNeighborhoods} className="space-y-3 rounded-xl border bg-background p-4">
+            <p className="text-xs font-semibold">
+              حدد 3 أحياء مختلفة يعمل بها المندوب (أو اختر من الأحياء السريعة):
+            </p>
+
+            {/* Quick Neighborhood Suggestions */}
+            <div className="flex flex-wrap gap-1.5">
+              {[
+                "العزيزية",
+                "الخالدية",
+                "المنصورة",
+                "النرجس",
+                "الياسمين",
+                "العارض",
+                "الملقا",
+                "العليا",
+                "الروضة",
+              ].map((suggested) => {
+                const isSelected = areas.includes(suggested);
+                return (
+                  <button
+                    key={suggested}
+                    type="button"
+                    onClick={() => {
+                      if (isSelected) return;
+                      const emptyIdx = areas.findIndex((a) => !a.trim());
+                      const targetIdx = emptyIdx !== -1 ? emptyIdx : 2;
+                      const next: [string, string, string] = [areas[0], areas[1], areas[2]];
+                      next[targetIdx] = suggested;
+                      setAreas(next);
+                    }}
+                    className={`rounded-full border px-2.5 py-1 text-[11px] font-medium transition-colors ${
+                      isSelected
+                        ? "border-primary bg-primary text-primary-foreground"
+                        : "bg-card hover:border-primary"
+                    }`}
+                  >
+                    + {suggested}
+                  </button>
+                );
+              })}
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+              {([0, 1, 2] as const).map((idx) => (
+                <label key={idx} className="block space-y-1 text-xs">
+                  <span className="font-semibold">الحي رقم {idx + 1}</span>
+                  <Input
+                    required
+                    minLength={2}
+                    placeholder={`مثال: ${["العزيزية", "الخالدية", "المنصورة"][idx]}`}
+                    value={areas[idx]}
+                    onChange={(e) => {
+                      const next: [string, string, string] = [areas[0], areas[1], areas[2]];
+                      next[idx] = e.target.value;
+                      setAreas(next);
+                    }}
+                  />
+                </label>
+              ))}
+            </div>
+
+            <Button type="submit" className="w-full gap-1.5 font-bold" disabled={busy}>
+              <Check className="size-4" />
+              حفظ الأحياء الثلاثة للمندوب
+            </Button>
+          </form>
+        )}
       </div>
 
       {/* Edit Form (when Edit icon is clicked) */}

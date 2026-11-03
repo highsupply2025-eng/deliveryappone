@@ -524,26 +524,50 @@ function CourierWork({ userId }: { userId: string }) {
             </section>
 
             {/* Online Button -> Automatic 10-Hour Shift Entry */}
-            <section className="flex items-center justify-between rounded-2xl border bg-card p-4 shadow-xs">
-              <div className="space-y-1">
-                <p className="font-bold tracking-normal">
-                  {isOnline ? "أونلاين — شيفت 10 ساعات تلقائي نشط" : "أوفلاين — اضغط أونلاين لبدء الشيفت تلقائياً"}
-                </p>
-                <p className="text-xs text-muted-foreground">
-                  {isOnline
-                    ? "تصلك الطلبات الموجودة في حيز 10 كيلومتر من المطعم أو العميل"
-                    : "بمجرد الضغط على أونلاين يبدأ شيفت 10 ساعات عمل تلقائياً"}
-                </p>
+            <section className="space-y-3 rounded-2xl border bg-card p-4 shadow-xs">
+              <div className="flex items-center justify-between gap-3">
+                <div className="space-y-1">
+                  <p className="font-bold tracking-normal">
+                    {isOnline ? "أونلاين — شيفت 10 ساعات تلقائي نشط" : "أوفلاين — اضغط أونلاين لبدء الشيفت تلقائياً"}
+                  </p>
+                  <p className="text-xs text-muted-foreground">
+                    {isOnline
+                      ? "تصلك الطلبات الموجودة في حيز 10 كيلومتر من المطعم أو العميل"
+                      : "بمجرد الضغط على أونلاين يبدأ شيفت 10 ساعات عمل تلقائياً"}
+                  </p>
+                </div>
+                <Button
+                  size="lg"
+                  variant={isOnline ? "outline" : "default"}
+                  disabled={busy}
+                  onClick={() => void toggleOnline(!isOnline)}
+                >
+                  <Bike className="size-4" />
+                  {isOnline ? "إنهاء الشيفت" : "أونلاين"}
+                </Button>
               </div>
-              <Button
-                size="lg"
-                variant={isOnline ? "outline" : "default"}
-                disabled={busy}
-                onClick={() => void toggleOnline(!isOnline)}
-              >
-                <Bike className="size-4" />
-                {isOnline ? "إنهاء الشيفت" : "أونلاين"}
-              </Button>
+
+              {/* 3 Assigned Neighborhoods Display */}
+              <div className="flex flex-wrap items-center gap-1.5 border-t pt-2.5 text-xs">
+                <span className="inline-flex items-center gap-1 font-semibold text-muted-foreground">
+                  <MapPin className="size-3.5 text-primary" />
+                  أحياء التغطية الثلاثة (من الإدارة):
+                </span>
+                {profile?.neighborhoods && profile.neighborhoods.length === 3 ? (
+                  profile.neighborhoods.map((area) => (
+                    <span
+                      key={area}
+                      className="rounded-md bg-secondary px-2 py-0.5 font-semibold text-foreground"
+                    >
+                      {area}
+                    </span>
+                  ))
+                ) : (
+                  <span className="font-medium text-amber-700">
+                    لم تحدد الإدارة الأحياء الثلاثة لك بعد
+                  </span>
+                )}
+              </div>
             </section>
 
             {!shift ? (

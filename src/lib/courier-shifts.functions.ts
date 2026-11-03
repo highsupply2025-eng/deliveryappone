@@ -162,18 +162,51 @@ export const courierSetOnline = createServerFn({ method: "POST" })
     const nowMs = Date.now();
     const nowIso = new Date(nowMs).toISOString();
 
-    const { data: activeShift } = await supabaseAdmin
+    const { data: courierShifts } = await supabaseAdmin
       .from("courier_shifts")
       .select("*")
       .eq("courier_id", context.userId)
-      .eq("status", "active")
       .order("scheduled_start", { ascending: false })
-      .limit(1)
-      .maybeSingle();
+      .limit(10);
+
+    const activeShift = (courierShifts ?? []).find((s) => s.status === "active") ?? null;
+    const scheduledShift = (courierShifts ?? []).find((s) => s.status === "scheduled") ?? null;
+
+    const metaNeighborhoods = Array.isArray(meta["neighborhoods"])
+      ? (meta["neighborhoods"] as string[]).filter((x) => typeof x === "string" && x.trim().length > 0)
+      : [];
+    const shiftWithNeighborhoods = (courierShifts ?? []).find(
+      (s) =>
+        Array.isArray(s.neighborhoods) &&
+        s.neighborhoods.length === 3 &&
+        !s.neighborhoods.includes("الأقرب للمطعم"),
+    );
+    const assignedNeighborhoods =
+      metaNeighborhoods.length === 3
+        ? metaNeighborhoods
+        : shiftWithNeighborhoods?.neighborhoods ?? [];
 
     if (data.online) {
       if (activeShift) {
         return { online: true, shift_id: activeShift.id };
+      }
+      if (assignedNeighborhoods.length < 3) {
+        throw new Error("لم تحدد الإدارة أحياء التغطية الثلاثة لك بعد");
+      }
+      if (scheduledShift) {
+        const { data: updatedShift, error: updateErr } = await supabaseAdmin
+          .from("courier_shifts")
+          .update({
+            status: "active",
+            started_at: nowIso,
+            neighborhoods: assignedNeighborhoods,
+            adjacent_confirmed: true,
+          })
+          .eq("id", scheduledShift.id)
+          .select()
+          .single();
+        if (updateErr) throw new Error(updateErr.message);
+        return { online: true, shift_id: updatedShift.id };
       }
       const { data: createdShift, error: insertError } = await supabaseAdmin
         .from("courier_shifts")
@@ -183,7 +216,7 @@ export const courierSetOnline = createServerFn({ method: "POST" })
           scheduled_start: nowIso,
           started_at: nowIso,
           status: "active",
-          neighborhoods: ["الأقرب للمطعم", "تغطية GPS", "مباشر"],
+          neighborhoods: assignedNeighborhoods,
           adjacent_confirmed: true,
           break_status: "none",
           break_request_used: false,
@@ -214,6 +247,17 @@ export const courierSetOnline = createServerFn({ method: "POST" })
             salary_day_eligible: eligible,
           })
           .eq("id", activeShift.id);
+
+        if (assignedNeighborhoods.length === 3 && !scheduledShift) {
+          await supabaseAdmin.from("courier_shifts").insert({
+            courier_id: context.userId,
+            created_by: context.userId,
+            scheduled_start: nowIso,
+            status: "scheduled",
+            neighborhoods: assignedNeighborhoods,
+            adjacent_confirmed: true,
+          });
+        }
       }
       return { online: false };
     }
@@ -396,6 +440,19 @@ export const getCourierDashboardData = createServerFn({ method: "POST" })
 
     const shifts = shiftsRes.data ?? [];
     const activeShift = shifts.find((s) => s.status === "active") ?? null;
+    const metaNeighborhoods = Array.isArray(meta["neighborhoods"])
+      ? (meta["neighborhoods"] as string[]).filter((x) => typeof x === "string" && x.trim().length > 0)
+      : [];
+    const shiftWithNeighborhoods = shifts.find(
+      (s) =>
+        Array.isArray(s.neighborhoods) &&
+        s.neighborhoods.length === 3 &&
+        !s.neighborhoods.includes("الأقرب للمطعم"),
+    );
+    const assignedNeighborhoods =
+      metaNeighborhoods.length === 3
+        ? metaNeighborhoods
+        : shiftWithNeighborhoods?.neighborhoods ?? [];
 
     const enrichedActive = (activeOrdersRes.data ?? [])
       .filter((o) => activeShift?.rejected_order_id !== o.id)
@@ -479,6 +536,7 @@ export const getCourierDashboardData = createServerFn({ method: "POST" })
         identity_violation_locked: Boolean(meta["identity_violation_locked"]),
         identity_violation_pending: Boolean(meta["identity_violation_pending"]),
         identity_violation_reason: (meta["identity_violation_reason"] as string) || null,
+        neighborhoods: assignedNeighborhoods,
       },
       activeShift,
       shiftHistory: shifts.filter((s) => s.status !== "active"),
