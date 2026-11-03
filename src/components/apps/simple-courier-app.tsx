@@ -47,13 +47,15 @@ import {
   canRejectOrder,
   courierAvailable,
   salaryDayEligible,
+  MAX_COURIER_RADIUS_KM,
+  evaluateOrderCourierProximity,
 } from "@/lib/courier-shift-rules";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { PhoneLogin } from "./phone-login";
 import { StaffOnboarding } from "./staff-onboarding";
 import { useRealtime } from "@/lib/realtime";
-import { useCourierLocation } from "@/lib/live-location";
+import { LOCATION_INTERVAL_MS } from "@/lib/tracking-rules";
 import { LiveOrderMap } from "./live-order-map";
 import { orderMapPoints } from "@/lib/order-map-points";
 
@@ -62,6 +64,35 @@ const OrderMapCanvas = lazy(() =>
 );
 
 type RiderTab = "current" | "map" | "history" | "support" | "profile";
+type CourierDashboardPayload = Awaited<ReturnType<typeof getCourierDashboardData>>;
+
+function getDashboardCacheKey(userId: string) {
+  return `foodhub_courier_dashboard_v2_${userId}`;
+}
+
+function readCachedDashboard(userId: string): CourierDashboardPayload | undefined {
+  if (typeof window === "undefined") return undefined;
+  try {
+    const raw = localStorage.getItem(getDashboardCacheKey(userId));
+    if (!raw) return undefined;
+    const parsed = JSON.parse(raw) as CourierDashboardPayload;
+    if (parsed && parsed.profile && parsed.profile.id === userId) {
+      return parsed;
+    }
+  } catch {
+    /* ignore */
+  }
+  return undefined;
+}
+
+function writeCachedDashboard(userId: string, data: CourierDashboardPayload) {
+  if (typeof window === "undefined") return;
+  try {
+    localStorage.setItem(getDashboardCacheKey(userId), JSON.stringify(data));
+  } catch {
+    /* ignore */
+  }
+}
 
 const duration = (seconds: number) =>
   `${Math.floor(seconds / 3600)
@@ -138,8 +169,19 @@ function CourierWork({ userId }: { userId: string }) {
   const [code, setCode] = useState("");
   const [alertEnabled, setAlertEnabled] = useState(true);
   const [coords, setCoords] = useState<{ latitude: number; longitude: number } | null>(null);
+  const [gpsError, setGpsError] = useState<string | null>(null);
   const coordsRef = useRef<{ latitude: number; longitude: number } | null>(null);
   const stablePortraitRef = useRef<{ baseKey: string; url: string } | null>(null);
+  const lastValidDashboardRef = useRef<CourierDashboardPayload | undefined>(
+    readCachedDashboard(userId),
+  );
+  const lastAlertedOrderIdRef = useRef<string | null>(
+    typeof window !== "undefined" ? sessionStorage.getItem("foodhub_alerted_order_id") : null,
+  );
+  const activeOrderTrackingRef = useRef<{ orderId: string | undefined; enabled: boolean }>({
+    orderId: undefined,
+    enabled: false,
+  });
   const [showLiveSelfieModal, setShowLiveSelfieModal] = useState(false);
   const [autoPromptedToday, setAutoPromptedToday] = useState(false);
   const [supportTopic, setSupportTopic] = useState("تأخر استلام الطلب من المطعم");
@@ -160,8 +202,11 @@ function CourierWork({ userId }: { userId: string }) {
 
   useEffect(() => {
     if (typeof navigator === "undefined" || !navigator.geolocation) return;
+    let sending = false;
+    let sentAt = 0;
+
     const watchId = navigator.geolocation.watchPosition(
-      (pos) => {
+      async (pos) => {
         const nextLat = Number(pos.coords.latitude.toFixed(4));
         const nextLng = Number(pos.coords.longitude.toFixed(4));
         const prev = coordsRef.current;
@@ -173,25 +218,190 @@ function CourierWork({ userId }: { userId: string }) {
         ) {
           setCoords({ latitude: nextLat, longitude: nextLng });
         }
+
+        // Publish live location for active order using the same single GPS watcher
+        const tracking = activeOrderTrackingRef.current;
+        if (
+          tracking.enabled &&
+          tracking.orderId &&
+          !sending &&
+          Date.now() - sentAt >= LOCATION_INTERVAL_MS
+        ) {
+          sending = true;
+          sentAt = Date.now();
+          const { latitude, longitude, accuracy, heading, speed } = pos.coords;
+          try {
+            const { error: e } = await supabase.rpc("publish_courier_location", {
+              p_order_id: tracking.orderId,
+              p_latitude: latitude,
+              p_longitude: longitude,
+              p_accuracy: accuracy,
+              ...(heading !== null ? { p_heading: heading } : {}),
+              ...(speed !== null ? { p_speed: Math.max(0, speed) } : {}),
+            });
+            setGpsError(e ? "تعذر إرسال موقعك؛ تحقق من الاتصال" : null);
+          } finally {
+            sending = false;
+          }
+        }
       },
       () => {
         /* fallback */
       },
-      { enableHighAccuracy: true, maximumAge: 15000, timeout: 15000 },
+      { enableHighAccuracy: true, maximumAge: 10000, timeout: 20000 },
     );
     return () => navigator.geolocation.clearWatch(watchId);
   }, []);
 
   const dashboard = useQuery({
     queryKey: ["courier-dashboard", userId],
-    placeholderData: (prev) => prev,
+    initialData: () => readCachedDashboard(userId),
+    placeholderData: (prev) => prev ?? lastValidDashboardRef.current,
+    retry: 2,
+    staleTime: 4000,
+    refetchOnWindowFocus: false,
     queryFn: async () => {
-      return await dashboardFn({
-        data: {
-          latitude: coordsRef.current?.latitude ?? null,
-          longitude: coordsRef.current?.longitude ?? null,
-        },
-      });
+      try {
+        const result = await dashboardFn({
+          data: {
+            latitude: coordsRef.current?.latitude ?? null,
+            longitude: coordsRef.current?.longitude ?? null,
+          },
+        });
+        if (result && result.profile) {
+          lastValidDashboardRef.current = result;
+          writeCachedDashboard(userId, result);
+        }
+        return result;
+      } catch (err) {
+        // Fallback to cached dashboard or direct client query so UI never resets to offline
+        if (lastValidDashboardRef.current) {
+          return lastValidDashboardRef.current;
+        }
+        const [uRes, shiftsRes, ordersRes, pastRes, profRes] = await Promise.all([
+          supabase.auth.getUser(),
+          supabase
+            .from("courier_shifts")
+            .select("*")
+            .eq("courier_id", userId)
+            .order("scheduled_start", { ascending: false })
+            .limit(20),
+          supabase
+            .from("orders")
+            .select(
+              "id,status,address,pickup_address,pickup_latitude,pickup_longitude,delivery_latitude,delivery_longitude,courier_id,courier_accepted_at,total,delivery_fee,created_at,restaurants(name_ar,address,latitude,longitude)",
+            )
+            .in("status", ["pending", "accepted", "preparing", "ready", "on_the_way"])
+            .or(`courier_id.eq.${userId},courier_id.is.null`)
+            .order("created_at", { ascending: false })
+            .limit(30),
+          supabase
+            .from("orders")
+            .select("id,status,address,pickup_address,total,delivery_fee,created_at,updated_at,restaurants(name_ar)")
+            .eq("courier_id", userId)
+            .eq("status", "delivered")
+            .order("updated_at", { ascending: false })
+            .limit(50),
+          supabase.from("profiles").select("*").eq("id", userId).maybeSingle(),
+        ]);
+        const u = uRes.data?.user;
+        if (!u) throw err;
+        const meta = (u.user_metadata ?? {}) as Record<string, unknown>;
+        const shifts = shiftsRes.data ?? [];
+        const activeShift = shifts.find((s) => s.status === "active") ?? null;
+        const metaNeighborhoods = Array.isArray(meta["neighborhoods"])
+          ? (meta["neighborhoods"] as string[]).filter((x) => typeof x === "string" && x.trim().length > 0)
+          : [];
+        const shiftWithNeighborhoods = shifts.find(
+          (s) =>
+            Array.isArray(s.neighborhoods) &&
+            s.neighborhoods.length === 3 &&
+            !s.neighborhoods.includes("الأقرب للمطعم"),
+        );
+        const assignedNeighborhoods =
+          metaNeighborhoods.length === 3
+            ? metaNeighborhoods
+            : shiftWithNeighborhoods?.neighborhoods ?? [];
+        const fallbackResult: CourierDashboardPayload = {
+          profile: {
+            id: userId,
+            full_name:
+              (meta["full_name"] as string) || profRes.data?.full_name || "كابتن توصيل",
+            email: u.email ?? "",
+            phone: (meta["phone"] as string) || profRes.data?.phone || "",
+            vehicle: ((meta["vehicle"] as string) || "car") as "car" | "motorcycle",
+            portrait_url: (meta["last_live_photo"] as string) || null,
+            documents: {},
+            identity_verified_date: (meta["identity_verified_date"] as string) || null,
+            identity_violation_locked: Boolean(meta["identity_violation_locked"]),
+            identity_violation_pending: Boolean(meta["identity_violation_pending"]),
+            identity_violation_reason: (meta["identity_violation_reason"] as string) || null,
+            neighborhoods: assignedNeighborhoods,
+          },
+          activeShift,
+          shiftHistory: shifts.filter((s) => s.status !== "active"),
+          activeOrders: (ordersRes.data ?? [])
+            .filter((o) => activeShift?.rejected_order_id !== o.id)
+            .map((o) => {
+              const rest = o.restaurants as {
+                name_ar?: string;
+                address?: string | null;
+                latitude?: number | null;
+                longitude?: number | null;
+              } | null;
+              const pLat = o.pickup_latitude ?? rest?.latitude ?? null;
+              const pLng = o.pickup_longitude ?? rest?.longitude ?? null;
+              const prox = evaluateOrderCourierProximity({
+                courierLat: coordsRef.current?.latitude ?? null,
+                courierLng: coordsRef.current?.longitude ?? null,
+                pickupLat: pLat,
+                pickupLng: pLng,
+                deliveryLat: o.delivery_latitude,
+                deliveryLng: o.delivery_longitude,
+                maxRadiusKm: MAX_COURIER_RADIUS_KM,
+              });
+              return {
+                id: o.id,
+                status: o.status,
+                address: o.address,
+                pickup_address: o.pickup_address ?? rest?.address ?? null,
+                pickup_latitude: pLat,
+                pickup_longitude: pLng,
+                delivery_latitude: o.delivery_latitude,
+                delivery_longitude: o.delivery_longitude,
+                courier_id: o.courier_id,
+                courier_accepted_at: o.courier_accepted_at,
+                total: o.total,
+                delivery_fee: o.delivery_fee,
+                created_at: o.created_at,
+                restaurant_name: rest?.name_ar ?? "المطعم",
+                distance_km: prox.distanceKm,
+                restaurant_distance_km: prox.restaurantDistanceKm,
+                customer_distance_km: prox.customerDistanceKm,
+                within_10km: prox.withinRadius,
+              };
+            })
+            .filter((o) => o.courier_id === userId || o.within_10km),
+          pastOrders: (pastRes.data ?? []).map((o) => {
+            const rest = o.restaurants as { name_ar?: string } | null;
+            return {
+              id: o.id,
+              status: o.status,
+              address: o.address,
+              pickup_address: o.pickup_address,
+              total: o.total,
+              delivery_fee: o.delivery_fee,
+              created_at: o.created_at,
+              updated_at: o.updated_at,
+              restaurant_name: rest?.name_ar ?? "المطعم",
+            };
+          }),
+          completedCount: (pastRes.data ?? []).length,
+        };
+        lastValidDashboardRef.current = fallbackResult;
+        writeCachedDashboard(userId, fallbackResult);
+        return fallbackResult;
+      }
     },
     refetchInterval: 10000,
   });
@@ -201,7 +411,8 @@ function CourierWork({ userId }: { userId: string }) {
       predicate: (q) => String(q.queryKey[0]).startsWith("courier-dashboard"),
     });
 
-  const profile = dashboard.data?.profile;
+  const dashData = dashboard.data ?? lastValidDashboardRef.current;
+  const profile = dashData?.profile;
   const rawPortraitUrl = profile?.portrait_url ?? null;
   if (rawPortraitUrl) {
     const baseKey = rawPortraitUrl.split("?")[0] ?? rawPortraitUrl;
@@ -210,12 +421,12 @@ function CourierWork({ userId }: { userId: string }) {
     }
   }
   const stablePortraitUrl = stablePortraitRef.current?.url ?? rawPortraitUrl;
-  const shift = dashboard.data?.activeShift ?? null;
+  const shift = dashData?.activeShift ?? null;
   const isOnline = !!shift && shift.status === "active";
-  const activeOrders = dashboard.data?.activeOrders ?? [];
-  const pastOrders = dashboard.data?.pastOrders ?? [];
-  const completedCount = dashboard.data?.completedCount ?? 0;
-  const shiftHistory = dashboard.data?.shiftHistory ?? [];
+  const activeOrders = dashData?.activeOrders ?? [];
+  const pastOrders = dashData?.pastOrders ?? [];
+  const completedCount = dashData?.completedCount ?? 0;
+  const shiftHistory = dashData?.shiftHistory ?? [];
   const totalDeliveryEarnings = pastOrders.reduce(
     (sum, o) => sum + Number(o.delivery_fee || 0),
     0,
@@ -248,12 +459,19 @@ function CourierWork({ userId }: { userId: string }) {
     }
   }, [isOnline, profile, isVerifiedToday, autoPromptedToday]);
 
-  // Sound alert when an active order is present
+  // Sound alert ONLY ONCE per unique active order ID (prevents repeated chime loops)
   const myActiveOrder = activeOrders.find((o) => o.courier_id === userId) ?? activeOrders[0];
   useEffect(() => {
-    if (!isOnline || !alertEnabled || !activeOrders.length) return;
+    if (!isOnline || !alertEnabled || !myActiveOrder?.id) return;
+    if (lastAlertedOrderIdRef.current === myActiveOrder.id) return;
+    lastAlertedOrderIdRef.current = myActiveOrder.id;
+    try {
+      sessionStorage.setItem("foodhub_alerted_order_id", myActiveOrder.id);
+    } catch {
+      /* ignore */
+    }
     playOrderAlertChime();
-  }, [isOnline, alertEnabled, activeOrders.length]);
+  }, [isOnline, alertEnabled, myActiveOrder?.id]);
 
   const work = shift?.started_at
     ? workedSeconds(
@@ -265,7 +483,11 @@ function CourierWork({ userId }: { userId: string }) {
     : 0;
   const onBreak = !!shift?.break_ends_at && now < Date.parse(shift.break_ends_at);
   const available = !!shift && courierAvailable(shift.status, work, onBreak);
-  const gpsError = useCourierLocation(myActiveOrder?.id, isOnline && !onBreak && !!myActiveOrder);
+
+  activeOrderTrackingRef.current = {
+    orderId: myActiveOrder?.id,
+    enabled: isOnline && !onBreak && !!myActiveOrder,
+  };
 
   const toggleOnline = async (online: boolean) => {
     if (!online && work < WORK_SECONDS) {
@@ -368,6 +590,20 @@ function CourierWork({ userId }: { userId: string }) {
       setBusy(false);
     }
   };
+
+  if (!dashData && dashboard.isPending) {
+    return (
+      <div
+        dir="rtl"
+        className="foodhub-staff flex min-h-screen flex-col items-center justify-center gap-3 bg-background p-6 text-foreground"
+      >
+        <div className="size-8 animate-spin rounded-full border-[3px] border-primary border-t-transparent" />
+        <p className="text-sm font-semibold text-muted-foreground">
+          جارِ مزامنة حالة الشيفت والطلبات…
+        </p>
+      </div>
+    );
+  }
 
   // PERMANENT ACCOUNT LOCK SCREEN WHEN IDENTITY PHOTO MISMATCH OCCURRED
   if (profile?.identity_violation_locked) {

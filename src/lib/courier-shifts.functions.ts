@@ -426,7 +426,17 @@ export const getCourierDashboardData = createServerFn({ method: "POST" })
         .limit(50),
     ]);
 
-    const u = userRes.data?.user;
+    if (userRes.error || !userRes.data?.user) {
+      throw new Error(userRes.error?.message || "تعذر التحقق من بيانات المندوب");
+    }
+    if (shiftsRes.error) {
+      throw new Error(shiftsRes.error.message);
+    }
+    if (activeOrdersRes.error) {
+      throw new Error(activeOrdersRes.error.message);
+    }
+
+    const u = userRes.data.user;
     const meta = (u?.user_metadata ?? {}) as Record<string, unknown>;
     const app = appRes.data;
     const prof = profRes.data;
