@@ -80,7 +80,16 @@ jobs:
           yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --licenses >/dev/null 2>&1 || true
           chmod +x gradlew
           variant="${FOODHUB_APP^}"
-          ./gradlew "assemble${variant}Release" --no-daemon --stacktrace
+
+          echo "Running Gradle assemble${variant}Release..."
+          ./gradlew "assemble${variant}Release" --no-daemon --stacktrace 2>&1 | tee "$RUNNER_TEMP/gradle-build.log" || {
+            echo "::error::Gradle assemble${variant}Release failed. Last 40 lines:"
+            tail -n 40 "$RUNNER_TEMP/gradle-build.log" | while IFS= read -r line; do
+              echo "::error::$line"
+            done
+            cp "$RUNNER_TEMP/gradle-build.log" "gradle-failure-${FOODHUB_APP}.log" || true
+            exit 1
+          }
 
           bt="$ANDROID_HOME/build-tools/$(ls "$ANDROID_HOME/build-tools" | sort -V | tail -1)"
           target_apk="app/build/outputs/apk/${FOODHUB_APP}/release/app-${FOODHUB_APP}-release.apk"
@@ -107,7 +116,9 @@ jobs:
         if: always()
         with:
           name: FoodHub-${{ matrix.app }}-Android-Release-APK
-          path: android/app/build/outputs/apk/${{ matrix.app }}/release/
+          path: |
+            android/app/build/outputs/apk/
+            android/gradle-failure-${{ matrix.app }}.log
           if-no-files-found: warn
           retention-days: 30
 
