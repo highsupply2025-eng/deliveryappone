@@ -448,3 +448,28 @@ export const setCourierNeighborhoods = createServerFn({ method: "POST" })
 
     return { ok: true, neighborhoods: data.neighborhoods };
   });
+
+export const markOrderCompletedByAdmin = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) =>
+    z
+      .object({
+        order_id: z.string().uuid(),
+        completed: z.boolean().default(true),
+      })
+      .parse(d),
+  )
+  .handler(async ({ data, context }) => {
+    await assertAdmin(context as unknown as AuthedContext);
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const nowIso = new Date().toISOString();
+    const { error } = await supabaseAdmin
+      .from("orders")
+      .update({
+        status: data.completed ? "delivered" : "pending",
+        updated_at: nowIso,
+      })
+      .eq("id", data.order_id);
+    if (error) throw new Error(error.message);
+    return { ok: true, updated_at: nowIso };
+  });

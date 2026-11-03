@@ -3,6 +3,10 @@ import {
   BREAK_SECONDS,
   WORK_SECONDS,
   MAX_COURIER_RADIUS_KM,
+  ADMIN_COMPLETED_ORDER_RETENTION_MS,
+  ADMIN_INCOMPLETE_ORDER_RETENTION_MS,
+  isAdminOrderVisible,
+  getAdminOrderNonArrivalReason,
   evaluateOrderCourierProximity,
   workedSeconds,
   salaryDayEligible,
@@ -90,5 +94,41 @@ describe("courier employment", () => {
     expect(shiftAssignmentSchema.safeParse({...base, neighborhoods:["النرجس","الياسمين"]}).success).toBe(false);
     expect(shiftAssignmentSchema.safeParse({...base, neighborhoods:["النرجس","النرجس","العارض"]}).success).toBe(false);
     expect(shiftAssignmentSchema.safeParse({...base, adjacent_confirmed:false, neighborhoods:["النرجس","الياسمين","العارض"]}).success).toBe(false);
+  });
+  test("admin order retention: 24h for completed orders, 48h for remaining orders", () => {
+    const now = Date.parse("2026-11-03T12:00:00Z");
+    expect(ADMIN_COMPLETED_ORDER_RETENTION_MS).toBe(24 * 60 * 60 * 1000);
+    expect(ADMIN_INCOMPLETE_ORDER_RETENTION_MS).toBe(48 * 60 * 60 * 1000);
+
+    // Completed order at 23h -> visible; at 24h -> hidden
+    expect(
+      isAdminOrderVisible(
+        { status: "delivered", created_at: "2026-11-02T10:00:00Z", updated_at: "2026-11-02T13:00:00Z" },
+        now,
+      ),
+    ).toBe(true);
+    expect(
+      isAdminOrderVisible(
+        { status: "delivered", created_at: "2026-11-02T10:00:00Z", updated_at: "2026-11-02T12:00:00Z" },
+        now,
+      ),
+    ).toBe(false);
+
+    // Remaining (incomplete) order at 36h -> visible; at 48h -> hidden
+    expect(
+      isAdminOrderVisible({ status: "pending", created_at: "2026-11-02T00:00:00Z" }, now),
+    ).toBe(true);
+    expect(
+      isAdminOrderVisible({ status: "pending", created_at: "2026-11-01T12:00:00Z" }, now),
+    ).toBe(false);
+
+    expect(
+      getAdminOrderNonArrivalReason({
+        status: "pending",
+        courier_id: null,
+        pickup_address: "البط",
+        delivery_neighborhood: "العزيزية",
+      }),
+    ).toContain("لم يستلمه مندوب");
   });
 });

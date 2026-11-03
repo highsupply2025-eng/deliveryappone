@@ -30,7 +30,14 @@ import {
   deleteAccount,
   setCourierApprovalStatus,
   setCourierNeighborhoods,
+  markOrderCompletedByAdmin,
 } from "@/lib/admin.functions";
+import {
+  ADMIN_COMPLETED_ORDER_RETENTION_MS,
+  ADMIN_INCOMPLETE_ORDER_RETENTION_MS,
+  isAdminOrderVisible,
+  getAdminOrderNonArrivalReason,
+} from "@/lib/courier-shift-rules";
 import { useSession } from "@/lib/session";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -137,7 +144,9 @@ function Panel() {
   );
   const [tab, setTab] = useState<Tab>("orders");
   const [selectedCourierId, setSelectedCourierId] = useState<string | null>(null);
+  const [busyOrderId, setBusyOrderId] = useState<string | null>(null);
   const qc = useQueryClient();
+  const markCompletedFn = useServerFn(markOrderCompletedByAdmin);
 
   const accounts = useQuery({
     queryKey: ["admin-app-accounts"],
@@ -149,12 +158,33 @@ function Panel() {
     queryFn: async () => {
       const { data } = await supabase
         .from("orders")
-        .select("id,status,total,address,created_at,pickup_address,delivery_neighborhood,courier_id")
+        .select(
+          "id,status,total,address,notes,created_at,updated_at,pickup_address,delivery_neighborhood,courier_id",
+        )
         .order("created_at", { ascending: false })
-        .limit(50);
-      return data ?? [];
+        .limit(100);
+      const nowMs = Date.now();
+      return (data ?? []).filter((o) => isAdminOrderVisible(o, nowMs));
     },
+    refetchInterval: 30000,
   });
+
+  const handleMarkOrderCompleted = async (orderId: string, completed: boolean) => {
+    setBusyOrderId(orderId);
+    try {
+      await markCompletedFn({ data: { order_id: orderId, completed } });
+      toast.success(
+        completed
+          ? "تم وضع علامة «اكتملت» على الطلب — سيُحذف تلقائياً من لوحة الأدمن بعد 24 ساعة"
+          : "تم إعادة الطلب للمتابعة (يبقى لمدة 48 ساعة لمعرفة سبب عدم الوصول)",
+      );
+      refresh();
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "تعذر تحديث حالة الطلب");
+    } finally {
+      setBusyOrderId(null);
+    }
+  };
 
   const restaurants = useQuery({
     enabled: tab === "restaurant",
@@ -209,31 +239,93 @@ function Panel() {
 
       <main className="mx-auto max-w-xl space-y-3 p-4">
         {tab === "orders" ? (
-          (orders.data ?? []).length === 0 ? (
-            <Empty />
-          ) : (
-            (orders.data ?? []).map((o) => (
-              <div key={o.id} className="rounded-xl border bg-card p-3">
-                <div className="flex justify-between text-sm font-semibold">
-                  <span>#{o.id.slice(0, 6)}</span>
-                  <span className="rounded-md bg-secondary px-2 text-xs leading-6">
-                    {STATUS_AR[o.status] ?? o.status}
-                  </span>
-                </div>
-                <p className="mt-1 truncate text-xs text-muted-foreground">{o.address}</p>
-                <p className="mt-1 text-sm">{Number(o.total).toFixed(2)} ر.س</p>
-                {["ready", "on_the_way"].includes(o.status) && <LiveOrderMap orderId={o.id} />}
-                {["pending", "accepted", "preparing", "ready"].includes(o.status) && (
-                  <AdminOrderRouting
-                    orderId={o.id}
-                    pickup={o.pickup_address}
-                    neighborhood={o.delivery_neighborhood}
-                    onDone={refresh}
-                  />
-                )}
-              </div>
-            ))
-          )
+          <>
+            <div className="rounded-xl border bg-card p-3 text-xs text-muted-foreground space-y-1">
+              <p className="font-bold text-foreground">نظام الاحتفاظ بالطلبات في لوحة الأدمن:</p>
+              <p>• الطلبات التي وصلت وتم وضع علامة <strong>«اكتملت ✓»</strong> أمامها تُحذف تلقائياً بعد <strong>24 ساعة</strong>.</p>
+              <p>• باقي الطلبات تبقى لمدة <strong>48 ساعة</strong> لمعرفة أسباب عدم وصولها ثم تُحذف تلقائياً.</p>
+            </div>
+            {(orders.data ?? []).length === 0 ? (
+              <Empty />
+            ) : (
+              (orders.data ?? []).map((o) => {
+                const isCompleted = o.status === "delivered";
+                const refIso = isCompleted ? o.updated_at || o.created_at : o.created_at;
+                const elapsedMs = Math.max(0, Date.now() - Date.parse(refIso));
+                const maxMs = isCompleted
+                  ? ADMIN_COMPLETED_ORDER_RETENTION_MS
+                  : ADMIN_INCOMPLETE_ORDER_RETENTION_MS;
+                const remainingHours = Math.max(
+                  0,
+                  Math.ceil((maxMs - elapsedMs) / (60 * 60 * 1000)),
+                );
+                const nonArrivalReason = getAdminOrderNonArrivalReason(o);
+
+                return (
+                  <div key={o.id} className="space-y-2.5 rounded-xl border bg-card p-3.5 shadow-xs">
+                    <div className="flex flex-wrap items-center justify-between gap-2 text-sm font-semibold">
+                      <div className="flex items-center gap-2">
+                        <span className="font-bold">#{o.id.slice(0, 6)}</span>
+                        {isCompleted ? (
+                          <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/15 px-2.5 py-0.5 text-xs font-bold text-emerald-700">
+                            <Check className="size-3.5" />
+                            اكتملت (وصلت للعميل)
+                          </span>
+                        ) : (
+                          <span className="rounded-md bg-secondary px-2 py-0.5 text-xs">
+                            {STATUS_AR[o.status] ?? o.status}
+                          </span>
+                        )}
+                      </div>
+
+                      <Button
+                        size="sm"
+                        variant={isCompleted ? "outline" : "default"}
+                        disabled={busyOrderId === o.id}
+                        onClick={() => void handleMarkOrderCompleted(o.id, !isCompleted)}
+                        className="h-7 gap-1 px-2.5 text-xs"
+                      >
+                        <Check className="size-3.5" />
+                        {isCompleted ? "مكتمل ✓ (إلغاء العلامة)" : "وضع علامة اكتملت ✓"}
+                      </Button>
+                    </div>
+
+                    <div className="flex items-center justify-between text-xs">
+                      <p className="truncate text-muted-foreground">{o.address}</p>
+                      <p className="font-bold text-sm shrink-0">{Number(o.total).toFixed(2)} ر.س</p>
+                    </div>
+
+                    {isCompleted ? (
+                      <div className="rounded-lg bg-emerald-500/10 px-2.5 py-1.5 text-[11px] font-medium text-emerald-800">
+                        ✓ تم وصول الطلب واكتماله — يُحذف تلقائياً من لوحة الأدمن بعد{" "}
+                        <strong>{remainingHours} ساعة</strong> (مهلة 24 ساعة)
+                      </div>
+                    ) : (
+                      <div className="space-y-1 rounded-lg border border-amber-500/30 bg-amber-500/10 px-2.5 py-2 text-[11px]">
+                        <p className="font-bold text-amber-900">
+                          سبب عدم الوصول حتى الآن: <span className="font-medium">{nonArrivalReason}</span>
+                        </p>
+                        <p className="text-muted-foreground">
+                          يبقى هذا الطلب في لوحة الأدمن لمدة 48 ساعة لمعرفة أسباب عدم وصوله (المتبقي{" "}
+                          <strong>{remainingHours} ساعة</strong> قبل الحذف التلقائي)
+                        </p>
+                      </div>
+                    )}
+
+                    {["ready", "on_the_way"].includes(o.status) && <LiveOrderMap orderId={o.id} />}
+                    {["pending", "accepted", "preparing", "ready"].includes(o.status) && (
+                      <AdminOrderRouting
+                        orderId={o.id}
+                        pickup={o.pickup_address}
+                        neighborhood={o.delivery_neighborhood}
+                        onDone={refresh}
+                      />
+                    )}
+                  </div>
+                );
+              })
+            )}
+          </>
         ) : tab === "courier" ? (
           selectedCourier ? (
             <CourierDetailPage

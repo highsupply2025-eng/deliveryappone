@@ -88,3 +88,52 @@ export function workedSeconds(start: number, end: number, breakStart?: number, b
   return Math.min(WORK_SECONDS, Math.max(0, Math.floor((end - start - pause) / 1000)));
 }
 export const salaryDayEligible = (seconds: number) => seconds >= WORK_SECONDS;
+
+export const ADMIN_COMPLETED_ORDER_RETENTION_MS = 24 * 60 * 60 * 1000;
+export const ADMIN_INCOMPLETE_ORDER_RETENTION_MS = 48 * 60 * 60 * 1000;
+
+export function isAdminOrderVisible(
+  order: { status: string; created_at: string; updated_at?: string | null | undefined },
+  nowMs: number = Date.now(),
+): boolean {
+  const isCompleted = order.status === "delivered";
+  const refIso = isCompleted ? order.updated_at || order.created_at : order.created_at;
+  const refMs = Date.parse(refIso);
+  if (!Number.isFinite(refMs)) return true;
+  const elapsedMs = Math.max(0, nowMs - refMs);
+  const maxRetentionMs = isCompleted
+    ? ADMIN_COMPLETED_ORDER_RETENTION_MS
+    : ADMIN_INCOMPLETE_ORDER_RETENTION_MS;
+  return elapsedMs < maxRetentionMs;
+}
+
+export function getAdminOrderNonArrivalReason(order: {
+  status: string;
+  courier_id?: string | null | undefined;
+  pickup_address?: string | null | undefined;
+  delivery_neighborhood?: string | null | undefined;
+  notes?: string | null | undefined;
+}): string {
+  if (order.status === "delivered") {
+    return "وصل الطلب للعميل واكتمل بنجاح";
+  }
+  if (order.status === "cancelled") {
+    return order.notes?.trim() ? `تم إلغاء الطلب (${order.notes.trim()})` : "تم إلغاء الطلب قبل الوصول";
+  }
+  if (!order.pickup_address || !order.delivery_neighborhood) {
+    return "لم يكتمل تحديد موقع الاستلام أو حي التسليم للطلب";
+  }
+  if (!order.courier_id) {
+    return "لم يستلمه مندوب بعد (بانتظار مندوب متاح ضمن النطاق)";
+  }
+  if (order.status === "pending" || order.status === "accepted" || order.status === "preparing") {
+    return "الطلب قيد التحضير في المطعم ولم يخرج للتوصيل بعد";
+  }
+  if (order.status === "ready") {
+    return "الطلب جاهز في المطعم بانتظار استلام المندوب له";
+  }
+  if (order.status === "on_the_way") {
+    return "الطلب مع المندوب في الطريق للعميل ولم يتم تأكيد التسليم بعد";
+  }
+  return "قيد المتابعة لمعرفة سبب عدم الوصول";
+}
