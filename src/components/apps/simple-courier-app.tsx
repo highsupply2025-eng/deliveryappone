@@ -24,6 +24,11 @@ import {
   Store,
   Send,
   PhoneCall,
+  Wallet,
+  Search,
+  FileText,
+  Sparkles,
+  Check,
 } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
@@ -137,6 +142,7 @@ function CourierWork({ userId }: { userId: string }) {
   const [autoPromptedToday, setAutoPromptedToday] = useState(false);
   const [supportTopic, setSupportTopic] = useState("تأخر استلام الطلب من المطعم");
   const [supportMessage, setSupportMessage] = useState("");
+  const [historySearch, setHistorySearch] = useState("");
 
   const dashboardFn = useServerFn(getCourierDashboardData);
   const onlineFn = useServerFn(courierSetOnline);
@@ -192,6 +198,19 @@ function CourierWork({ userId }: { userId: string }) {
   const pastOrders = dashboard.data?.pastOrders ?? [];
   const completedCount = dashboard.data?.completedCount ?? 0;
   const shiftHistory = dashboard.data?.shiftHistory ?? [];
+  const totalDeliveryEarnings = pastOrders.reduce(
+    (sum, o) => sum + Number(o.delivery_fee || 0),
+    0,
+  );
+  const filteredPastOrders = pastOrders.filter((o) => {
+    const q = historySearch.trim().toLowerCase();
+    if (!q) return true;
+    return (
+      o.id.toLowerCase().includes(q) ||
+      o.restaurant_name.toLowerCase().includes(q) ||
+      o.address.toLowerCase().includes(q)
+    );
+  });
 
   const todayStr = new Date().toISOString().slice(0, 10);
   const isVerifiedToday = profile?.identity_verified_date === todayStr;
@@ -496,40 +515,68 @@ function CourierWork({ userId }: { userId: string }) {
         {/* TAB 1: CURRENT ORDER & AUTOMATIC 10-HOUR SHIFT */}
         {tab === "current" && (
           <>
-            {/* Quick Summary KPIs: Completed Orders, Work Hours, Rejection Right */}
-            <section className="grid grid-cols-3 gap-2.5">
-              <div className="rounded-2xl border bg-card p-3 text-center shadow-xs">
-                <p className="text-[11px] text-muted-foreground">الطلبات المنجزة</p>
-                <p className="mt-1 text-xl font-bold text-primary">{completedCount}</p>
-                <p className="text-[10px] text-muted-foreground">طلب مكتمل</p>
+            {/* Executive 4-Card Rider KPI Strip: Completed Orders, Delivery Earnings, Shift Hours, Rejection Right */}
+            <section className="grid grid-cols-2 gap-2.5 sm:grid-cols-4">
+              <div className="rounded-2xl border bg-card p-3 shadow-xs">
+                <div className="flex items-center justify-between text-[11px] text-muted-foreground">
+                  <span>الطلبات المنجزة</span>
+                  <PackageCheck className="size-3.5 text-primary" />
+                </div>
+                <p className="mt-1 text-xl font-black text-primary">{completedCount}</p>
+                <p className="text-[10px] text-muted-foreground">طلب مكتمل بنجاح</p>
               </div>
-              <div className="rounded-2xl border bg-card p-3 text-center shadow-xs">
-                <p className="text-[11px] text-muted-foreground">ساعات الشيفت</p>
-                <p className="mt-1 text-base font-bold tabular-nums" dir="ltr">
+              <div className="rounded-2xl border bg-card p-3 shadow-xs">
+                <div className="flex items-center justify-between text-[11px] text-muted-foreground">
+                  <span>أرباح التوصيل</span>
+                  <Wallet className="size-3.5 text-emerald-600" />
+                </div>
+                <p className="mt-1 text-lg font-black text-emerald-700">
+                  {totalDeliveryEarnings.toFixed(0)} <span className="text-xs font-bold">ر.س</span>
+                </p>
+                <p className="text-[10px] text-muted-foreground">إجمالي رسوم التوصيل</p>
+              </div>
+              <div className="rounded-2xl border bg-card p-3 shadow-xs">
+                <div className="flex items-center justify-between text-[11px] text-muted-foreground">
+                  <span>ساعات الشيفت</span>
+                  <Clock className="size-3.5 text-primary" />
+                </div>
+                <p className="mt-1 text-base font-black tabular-nums" dir="ltr">
                   {(work / 3600).toFixed(1)} / 10h
                 </p>
                 <p className="text-[10px] text-muted-foreground">
                   {salaryDayEligible(work) ? "الأجر اليومي مستحق ✓" : "يلزم إكمال 10 ساعات"}
                 </p>
               </div>
-              <div className="rounded-2xl border bg-card p-3 text-center shadow-xs">
-                <p className="text-[11px] text-muted-foreground">حق رفض الطلب</p>
-                <p className="mt-1 text-base font-bold">
+              <div className="rounded-2xl border bg-card p-3 shadow-xs">
+                <div className="flex items-center justify-between text-[11px] text-muted-foreground">
+                  <span>حق رفض الطلب</span>
+                  <Sparkles className="size-3.5 text-amber-600" />
+                </div>
+                <p className="mt-1 text-base font-black">
                   {shift?.rejected_order_id ? "0 / 1" : "1 / 1"}
                 </p>
                 <p className="text-[10px] text-muted-foreground">
-                  {shift?.rejected_order_id ? "تم استخدامه" : "طلب واحد بالشيفت"}
+                  {shift?.rejected_order_id ? "تم استخدامه" : "متاح مرة بالشيفت"}
                 </p>
               </div>
             </section>
 
-            {/* Online Button -> Automatic 10-Hour Shift Entry */}
+            {/* Online Button -> Automatic 10-Hour Shift Entry & 3 Assigned Neighborhoods */}
             <section className="space-y-3 rounded-2xl border bg-card p-4 shadow-xs">
               <div className="flex items-center justify-between gap-3">
                 <div className="space-y-1">
-                  <p className="font-bold tracking-normal">
-                    {isOnline ? "أونلاين — شيفت 10 ساعات تلقائي نشط" : "أوفلاين — اضغط أونلاين لبدء الشيفت تلقائياً"}
-                  </p>
+                  <div className="flex items-center gap-2">
+                    <span
+                      className={`size-2.5 rounded-full ${
+                        isOnline ? "bg-emerald-500 animate-pulse" : "bg-muted-foreground"
+                      }`}
+                    />
+                    <p className="font-bold tracking-normal">
+                      {isOnline
+                        ? "أونلاين — شيفت 10 ساعات تلقائي نشط"
+                        : "أوفلاين — اضغط أونلاين لبدء الشيفت تلقائياً"}
+                    </p>
+                  </div>
                   <p className="text-xs text-muted-foreground">
                     {isOnline
                       ? "تصلك الطلبات الموجودة في حيز 10 كيلومتر من المطعم أو العميل"
@@ -554,16 +601,19 @@ function CourierWork({ userId }: { userId: string }) {
                   أحياء التغطية الثلاثة (من الإدارة):
                 </span>
                 {profile?.neighborhoods && profile.neighborhoods.length === 3 ? (
-                  profile.neighborhoods.map((area) => (
+                  profile.neighborhoods.map((area, i) => (
                     <span
                       key={area}
-                      className="rounded-md bg-secondary px-2 py-0.5 font-semibold text-foreground"
+                      className="inline-flex items-center gap-1 rounded-md border border-primary/30 bg-primary/10 px-2 py-0.5 font-semibold text-foreground"
                     >
+                      <span className="flex size-4 items-center justify-center rounded-full bg-primary text-[10px] font-bold text-primary-foreground">
+                        {i + 1}
+                      </span>
                       {area}
                     </span>
                   ))
                 ) : (
-                  <span className="font-medium text-amber-700">
+                  <span className="rounded-md bg-amber-500/15 px-2 py-0.5 font-semibold text-amber-800">
                     لم تحدد الإدارة الأحياء الثلاثة لك بعد
                   </span>
                 )}
@@ -571,33 +621,59 @@ function CourierWork({ userId }: { userId: string }) {
             </section>
 
             {!shift ? (
-              <section className="rounded-2xl border bg-card py-12 text-center space-y-2">
+              <section className="rounded-2xl border bg-card py-12 text-center space-y-2 shadow-xs">
                 <Clock className="mx-auto mb-2 size-10 text-muted-foreground" />
                 <h2 className="font-bold tracking-normal">أنت حالياً أوفلاين</h2>
                 <p className="text-sm text-muted-foreground px-4">
-                  اضغط زر «أونلاين» بالأعلى للدخول الفوري في شيفت تلقائي لمدة 10 ساعات واستقبال الطلبات الأقرب للمطعم.
+                  اضغط زر «أونلاين» بالأعلى للدخول الفوري في شيفت تلقائي لمدة 10 ساعات واستقبال الطلبات ضمن نطاق 10 كم من المطعم أو العميل.
                 </p>
               </section>
             ) : (
               <>
-                {/* 10-Hour Shift Timer & Break Card */}
+                {/* 10-Hour Shift Timer, Visual Progress Bar & Break Card */}
                 <section className="space-y-3 rounded-2xl border bg-card p-4 shadow-xs">
                   <div className="flex items-center justify-between">
                     <h2 className="font-bold tracking-normal">شيفت الـ 10 ساعات التلقائي</h2>
-                    <span className="rounded-full bg-secondary px-2.5 py-0.5 text-xs font-semibold">
-                      {available ? "متاح لاستقبال الطلبات" : onBreak ? "في البريك (متوقف مؤقتاً)" : "اكتمل الشيفت"}
+                    <span
+                      className={`rounded-full px-2.5 py-0.5 text-xs font-bold ${
+                        available
+                          ? "bg-emerald-500/15 text-emerald-700"
+                          : onBreak
+                            ? "bg-amber-500/15 text-amber-800"
+                            : "bg-secondary text-foreground"
+                      }`}
+                    >
+                      {available ? "متاح لاستقبال الطلبات" : onBreak ? "في البريك (متوقف مؤقتاً)" : "اكتمل الشيفت ✓"}
                     </span>
                   </div>
 
-                  <div className="rounded-xl bg-secondary/50 py-3 text-center">
+                  <div className="rounded-xl bg-secondary/50 p-3.5 text-center space-y-2">
                     <p className="text-xs text-muted-foreground">ساعات العمل الفعلية الصافية (بدون البريك)</p>
-                    <p dir="ltr" className="mt-1 text-3xl font-bold tabular-nums">
+                    <p dir="ltr" className="text-3xl font-black tabular-nums tracking-wider">
                       {duration(work)}
                     </p>
-                    <p className="mt-1 text-xs font-medium">
-                      المتبقي لإكمال الـ 10 ساعات واستحقاق الأجر اليومي:{" "}
-                      <strong dir="ltr">{duration(Math.max(0, WORK_SECONDS - work))}</strong>
-                    </p>
+                    {/* 10-Hour Visual Progress Bar */}
+                    <div className="space-y-1 pt-1">
+                      <div className="h-2.5 w-full overflow-hidden rounded-full bg-background border">
+                        <div
+                          className={`h-full transition-all duration-500 ${
+                            salaryDayEligible(work) ? "bg-emerald-600" : "bg-primary"
+                          }`}
+                          style={{
+                            width: `${Math.min(100, Math.round((work / WORK_SECONDS) * 100))}%`,
+                          }}
+                        />
+                      </div>
+                      <div className="flex items-center justify-between text-[11px] font-medium">
+                        <span>
+                          نسبة الإنجاز: <strong>{Math.min(100, Math.round((work / WORK_SECONDS) * 100))}%</strong>
+                        </span>
+                        <span>
+                          المتبقي للأجر اليومي:{" "}
+                          <strong dir="ltr">{duration(Math.max(0, WORK_SECONDS - work))}</strong>
+                        </span>
+                      </div>
+                    </div>
                   </div>
 
                   <p className="text-[11px] text-muted-foreground leading-relaxed">
@@ -664,7 +740,7 @@ function CourierWork({ userId }: { userId: string }) {
                       <Camera className="size-4 text-primary shrink-0" />
                       <span>
                         {isVerifiedToday
-                          ? "تم إثبات الهوية بالصورة الحية لهذا اليوم بنجاح"
+                          ? "تم إثبات الهوية بالصورة الحية لهذا اليوم بنجاح ✓"
                           : "مطلوب إثبات الهوية بصورة حية للمندوب خلال الشيفت"}
                       </span>
                     </div>
@@ -696,7 +772,7 @@ function CourierWork({ userId }: { userId: string }) {
                   </div>
 
                   {!activeOrders.length ? (
-                    <div className="rounded-2xl border bg-card py-10 text-center text-muted-foreground">
+                    <div className="rounded-2xl border bg-card py-10 text-center text-muted-foreground shadow-xs">
                       <PackageCheck className="mx-auto mb-3 size-10" />
                       <p className="font-medium">
                         {onBreak ? "أنت في البريك حالياً" : "لا يوجد طلب نشط في نطاق 10 كم حالياً"}
@@ -709,6 +785,14 @@ function CourierWork({ userId }: { userId: string }) {
                     activeOrders.map((o, idx) => {
                       const isMine = o.courier_id === userId;
                       const canReject = canRejectOrder(shift.rejected_order_id, o.status, work);
+                      const currentStep = !isMine || !o.courier_accepted_at
+                        ? 1
+                        : o.status === "on_the_way"
+                          ? 4
+                          : o.status === "ready"
+                            ? 3
+                            : 2;
+
                       return (
                         <article
                           key={o.id}
@@ -716,7 +800,7 @@ function CourierWork({ userId }: { userId: string }) {
                         >
                           <div className="flex flex-wrap items-center justify-between gap-2">
                             <div className="flex items-center gap-2">
-                              <p className="font-bold">طلب #{o.id.slice(0, 8)}</p>
+                              <p className="font-bold text-base">طلب #{o.id.slice(0, 8)}</p>
                               {isMine ? (
                                 <span className="rounded-full bg-primary/20 px-2.5 py-0.5 text-xs font-bold">
                                   طلبك الحالي
@@ -740,27 +824,71 @@ function CourierWork({ userId }: { userId: string }) {
                                   {o.customer_distance_km} كم عن العميل
                                 </span>
                               )}
+                              {Number(o.delivery_fee || 0) > 0 && (
+                                <span className="rounded-md bg-emerald-500/15 px-2 py-1 font-bold text-emerald-700">
+                                  توصيل: {Number(o.delivery_fee).toFixed(0)} ر.س
+                                </span>
+                              )}
                               <span className="rounded-md bg-secondary px-2 py-1 font-bold">
                                 {Number(o.total).toFixed(2)} ر.س
                               </span>
                             </div>
                           </div>
 
-                          <Location
-                            title={`الاستلام · ${o.restaurant_name}`}
-                            address={o.pickup_address ?? "موقع المطعم على الخريطة"}
-                          />
-                          <Location title="التسليم للعميل" address={o.address} />
+                          {/* 4-Step Visual Order Progress Stepper */}
+                          <div className="grid grid-cols-4 gap-1.5 rounded-xl bg-secondary/40 p-2.5 text-center text-[10px]">
+                            {[
+                              { step: 1, label: "قبول الطلب" },
+                              { step: 2, label: "تحضير المطعم" },
+                              { step: 3, label: "استلام الطلب" },
+                              { step: 4, label: "كود العميل" },
+                            ].map((s) => {
+                              const done = currentStep > s.step;
+                              const active = currentStep === s.step;
+                              return (
+                                <div
+                                  key={s.step}
+                                  className={`flex flex-col items-center gap-1 rounded-lg p-1.5 font-semibold ${
+                                    active
+                                      ? "bg-primary text-primary-foreground shadow-xs"
+                                      : done
+                                        ? "bg-emerald-500/15 text-emerald-700"
+                                        : "text-muted-foreground"
+                                  }`}
+                                >
+                                  <span className="flex size-4 items-center justify-center rounded-full border border-current text-[9px] font-bold">
+                                    {done ? <Check className="size-2.5" /> : s.step}
+                                  </span>
+                                  <span>{s.label}</span>
+                                </div>
+                              );
+                            })}
+                          </div>
+
+                          <div className="grid gap-2.5 sm:grid-cols-2">
+                            <Location
+                              title={`1. الاستلام · ${o.restaurant_name}`}
+                              address={o.pickup_address ?? "موقع المطعم على الخريطة"}
+                              latitude={o.pickup_latitude}
+                              longitude={o.pickup_longitude}
+                            />
+                            <Location
+                              title="2. التسليم للعميل"
+                              address={o.address}
+                              latitude={o.delivery_latitude}
+                              longitude={o.delivery_longitude}
+                            />
+                          </div>
                           <LiveOrderMap orderId={o.id} />
 
-                          <p className="text-sm text-muted-foreground">
+                          <p className="text-sm font-medium text-muted-foreground">
                             {!isMine || !o.courier_accepted_at
-                              ? "طلب جديد من مطعم قريب — اقبله ليبدأ المطعم التحضير"
+                              ? "طلب جديد ضمن نطاق 10 كم — اقبله ليبدأ المطعم التحضير فوراً"
                               : o.status === "on_the_way"
-                                ? "في الطريق للعميل — أدخل كود التسليم عند الوصول"
+                                ? "في الطريق للعميل — أدخل كود التسليم المكون من 4 أرقام عند الوصول"
                                 : o.status === "ready"
-                                  ? "الطلب جاهز في المطعم للاستلام"
-                                  : "المطعم يحضّر الطلب الآن"}
+                                  ? "الطلب جاهز الآن في المطعم للاستلام"
+                                  : "المطعم يحضّر الطلب الآن — توجه لنقطة الاستلام"}
                           </p>
 
                           {!isMine || !o.courier_accepted_at ? (
@@ -832,14 +960,18 @@ function CourierWork({ userId }: { userId: string }) {
           <section className="space-y-3 rounded-2xl border bg-card p-4 shadow-xs">
             <div className="flex items-center justify-between">
               <div>
-                <h2 className="font-bold">خريطة المندوب والمواقع الحية</h2>
+                <h2 className="font-bold">خريطة المندوب والمواقع الحية (نطاق 10 كم)</h2>
                 <p className="text-xs text-muted-foreground">
                   تظهر موقعك الحالي، موقع المطعم للاستلام، وموقع العميل للتسليم
                 </p>
               </div>
-              {coords && (
+              {coords ? (
                 <span className="rounded-full bg-emerald-500/15 px-2.5 py-0.5 text-xs font-bold text-emerald-700">
-                  GPS متصل
+                  GPS متصل ✓
+                </span>
+              ) : (
+                <span className="rounded-full bg-secondary px-2.5 py-0.5 text-xs font-medium text-muted-foreground">
+                  بانتظار GPS
                 </span>
               )}
             </div>
@@ -855,36 +987,91 @@ function CourierWork({ userId }: { userId: string }) {
             </Suspense>
 
             {myActiveOrder && (
-              <div className="rounded-xl bg-secondary/50 p-3 text-xs space-y-1">
-                <p className="font-bold">الطلب النشط على الخريطة: #{myActiveOrder.id.slice(0, 8)}</p>
+              <div className="rounded-xl bg-secondary/50 p-3 text-xs space-y-2">
+                <div className="flex items-center justify-between">
+                  <p className="font-bold">الطلب النشط على الخريطة: #{myActiveOrder.id.slice(0, 8)}</p>
+                  <span className="font-bold text-primary">{Number(myActiveOrder.total).toFixed(2)} ر.س</span>
+                </div>
                 <p>الاستلام: {myActiveOrder.restaurant_name} — {myActiveOrder.pickup_address ?? "المطعم"}</p>
                 <p>التسليم: {myActiveOrder.address}</p>
+                <div className="grid grid-cols-2 gap-2 pt-1">
+                  <Button asChild size="sm" variant="outline" className="gap-1.5 text-xs">
+                    <a
+                      href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(
+                        myActiveOrder.pickup_latitude != null && myActiveOrder.pickup_longitude != null
+                          ? `${myActiveOrder.pickup_latitude},${myActiveOrder.pickup_longitude}`
+                          : (myActiveOrder.pickup_address ?? myActiveOrder.restaurant_name),
+                      )}`}
+                      target="_blank"
+                      rel="noreferrer"
+                    >
+                      <Store className="size-3.5 text-primary" />
+                      ملاحة للمطعم
+                    </a>
+                  </Button>
+                  <Button asChild size="sm" variant="outline" className="gap-1.5 text-xs">
+                    <a
+                      href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(
+                        myActiveOrder.delivery_latitude != null && myActiveOrder.delivery_longitude != null
+                          ? `${myActiveOrder.delivery_latitude},${myActiveOrder.delivery_longitude}`
+                          : myActiveOrder.address,
+                      )}`}
+                      target="_blank"
+                      rel="noreferrer"
+                    >
+                      <Navigation className="size-3.5 text-primary" />
+                      ملاحة للعميل
+                    </a>
+                  </Button>
+                </div>
               </div>
             )}
           </section>
         )}
 
-        {/* TAB 3: COMPLETED ORDERS & SHIFT WAGE HISTORY */}
+        {/* TAB 3: COMPLETED ORDERS, DELIVERY EARNINGS & SHIFT WAGE HISTORY */}
         {tab === "history" && (
           <section className="space-y-4">
-            <div className="rounded-2xl border bg-card p-4 shadow-xs flex items-center justify-between">
-              <div>
-                <h2 className="font-bold">إجمالي الطلبات التي تم إنجازها</h2>
-                <p className="text-xs text-muted-foreground">جميع الطلبات المسلمة للعملاء بنجاح</p>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="rounded-2xl border bg-card p-4 shadow-xs flex items-center justify-between">
+                <div>
+                  <h2 className="font-bold text-sm">الطلبات المنجزة</h2>
+                  <p className="text-[11px] text-muted-foreground">المسلمة للعملاء بنجاح</p>
+                </div>
+                <span className="rounded-2xl bg-primary px-3.5 py-2 text-lg font-black text-primary-foreground">
+                  {completedCount}
+                </span>
               </div>
-              <span className="rounded-2xl bg-primary px-4 py-2 text-xl font-black text-primary-foreground">
-                {completedCount}
-              </span>
+              <div className="rounded-2xl border bg-card p-4 shadow-xs flex items-center justify-between">
+                <div>
+                  <h2 className="font-bold text-sm">أرباح التوصيل</h2>
+                  <p className="text-[11px] text-muted-foreground">إجمالي رسوم التوصيل</p>
+                </div>
+                <span className="rounded-2xl bg-emerald-500/15 px-3 py-2 text-base font-black text-emerald-700">
+                  {totalDeliveryEarnings.toFixed(0)} ر.س
+                </span>
+              </div>
             </div>
 
             <div className="space-y-2.5">
-              <h3 className="text-sm font-bold">الطلبات السابقة ({pastOrders.length})</h3>
-              {pastOrders.length === 0 ? (
+              <div className="flex items-center justify-between gap-2">
+                <h3 className="text-sm font-bold">الطلبات السابقة ({filteredPastOrders.length})</h3>
+                <div className="relative w-48">
+                  <Search className="pointer-events-none absolute end-2.5 top-2.5 size-3.5 text-muted-foreground" />
+                  <Input
+                    value={historySearch}
+                    onChange={(e) => setHistorySearch(e.target.value)}
+                    placeholder="بحث برقم الطلب أو المطعم..."
+                    className="h-8 pe-8 text-xs"
+                  />
+                </div>
+              </div>
+              {filteredPastOrders.length === 0 ? (
                 <div className="rounded-2xl border bg-card py-10 text-center text-sm text-muted-foreground">
-                  لا توجد طلبات مكتملة في السجل بعد
+                  لا توجد طلبات مكتملة مطابقة في السجل
                 </div>
               ) : (
-                pastOrders.map((o) => (
+                filteredPastOrders.map((o) => (
                   <article key={o.id} className="rounded-2xl border bg-card p-4 shadow-xs space-y-1.5">
                     <div className="flex items-center justify-between">
                       <span className="font-bold text-sm">طلب #{o.id.slice(0, 8)}</span>
@@ -894,9 +1081,16 @@ function CourierWork({ userId }: { userId: string }) {
                     </div>
                     <p className="text-xs font-semibold text-foreground">{o.restaurant_name}</p>
                     <p className="text-xs text-muted-foreground">{o.address}</p>
-                    <div className="flex items-center justify-between pt-1 text-xs text-muted-foreground border-t">
+                    <div className="flex items-center justify-between pt-1.5 text-xs text-muted-foreground border-t">
                       <span>{new Date(o.updated_at).toLocaleString("ar-SA")}</span>
-                      <strong className="text-foreground">{Number(o.total).toFixed(2)} ر.س</strong>
+                      <div className="flex items-center gap-2">
+                        {Number(o.delivery_fee || 0) > 0 && (
+                          <span className="rounded-md bg-emerald-500/15 px-2 py-0.5 font-bold text-emerald-700">
+                            ربح التوصيل: {Number(o.delivery_fee).toFixed(0)} ر.س
+                          </span>
+                        )}
+                        <strong className="text-foreground">{Number(o.total).toFixed(2)} ر.س</strong>
+                      </div>
                     </div>
                   </article>
                 ))
@@ -904,7 +1098,7 @@ function CourierWork({ userId }: { userId: string }) {
             </div>
 
             <div className="space-y-2.5 pt-2 border-t">
-              <h3 className="text-sm font-bold">سجل الشيفتات والأجر اليومي (شرط 10 ساعات)</h3>
+              <h3 className="text-sm font-bold">سجل الشيفتات والأجر اليومي (شرط إكمال 10 ساعات)</h3>
               {shiftHistory.length === 0 ? (
                 <p className="text-xs text-muted-foreground">لا توجد شيفتات سابقة مسجلة</p>
               ) : (
@@ -983,6 +1177,23 @@ function CourierWork({ userId }: { userId: string }) {
               className="rounded-2xl border bg-card p-5 space-y-3 shadow-xs"
             >
               <h3 className="font-bold text-sm">إرسال تذكرة دعم أو بلاغ للإدارة</h3>
+              <div className="flex flex-wrap gap-1.5">
+                {[
+                  "المطعم متأخر في تسليم الطلب",
+                  "العميل لا يرد على الاتصال",
+                  "تعديل أحياء التغطية الثلاثة",
+                  "مراجعة الصورة الحية للشيفت",
+                ].map((quick) => (
+                  <button
+                    key={quick}
+                    type="button"
+                    onClick={() => setSupportMessage(quick)}
+                    className="rounded-full border bg-secondary/60 px-2.5 py-1 text-[11px] font-medium hover:bg-secondary"
+                  >
+                    + {quick}
+                  </button>
+                ))}
+              </div>
               <label className="block space-y-1 text-xs">
                 <span>نوع المشكلة</span>
                 <select
@@ -1070,6 +1281,63 @@ function CourierWork({ userId }: { userId: string }) {
                   </strong>
                 </div>
               </div>
+
+              {/* 3 Assigned Neighborhoods in Profile */}
+              <div className="rounded-xl border bg-secondary/30 p-3 text-xs space-y-2">
+                <span className="font-bold flex items-center gap-1.5">
+                  <MapPin className="size-4 text-primary" />
+                  الأحياء الثلاثة المحددة لعملك من الإدارة:
+                </span>
+                {profile?.neighborhoods && profile.neighborhoods.length === 3 ? (
+                  <div className="flex flex-wrap gap-1.5">
+                    {profile.neighborhoods.map((area, idx) => (
+                      <span
+                        key={area}
+                        className="inline-flex items-center gap-1 rounded-md border border-primary/30 bg-card px-2.5 py-1 font-semibold"
+                      >
+                        <span className="flex size-4 items-center justify-center rounded-full bg-primary text-[10px] font-bold text-primary-foreground">
+                          {idx + 1}
+                        </span>
+                        {area}
+                      </span>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-amber-700 font-medium">
+                    لم تحدد الإدارة الأحياء الثلاثة لحسابك بعد
+                  </p>
+                )}
+              </div>
+
+              {/* Uploaded Official Documents */}
+              {profile?.documents && Object.keys(profile.documents).length > 0 && (
+                <div className="rounded-xl border bg-secondary/30 p-3 text-xs space-y-2">
+                  <span className="font-bold flex items-center gap-1.5">
+                    <FileText className="size-4 text-primary" />
+                    المستندات الرسمية المرفقة ({Object.keys(profile.documents).length}):
+                  </span>
+                  <div className="flex flex-wrap gap-1.5">
+                    {Object.entries(profile.documents).map(([docKey, docUrl]) => {
+                      const docLabels: Record<string, string> = {
+                        id_card: "الهوية الوطنية / الإقامة",
+                        driving_license: "رخصة القيادة",
+                        portrait: "الصورة الشخصية",
+                      };
+                      return (
+                        <a
+                          key={docKey}
+                          href={docUrl}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="rounded-md border bg-card px-2.5 py-1 font-medium hover:bg-secondary"
+                        >
+                          {docLabels[docKey] ?? docKey} ↗
+                        </a>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
 
               <Button
                 variant="outline"
@@ -1338,19 +1606,31 @@ function LiveSelfieVerificationModal({
   );
 }
 
-function Location({ title, address }: { title: string; address: string }) {
+function Location({
+  title,
+  address,
+  latitude,
+  longitude,
+}: {
+  title: string;
+  address: string;
+  latitude?: number | null | undefined;
+  longitude?: number | null | undefined;
+}) {
+  const query =
+    latitude != null && longitude != null ? `${latitude},${longitude}` : address;
   return (
-    <div>
-      <p className="mb-1 text-xs text-muted-foreground">{title}</p>
-      <p className="text-sm leading-7">{address}</p>
-      <Button asChild variant="outline" size="sm" className="mt-2">
+    <div className="rounded-xl border bg-secondary/30 p-3 space-y-1.5">
+      <p className="text-[11px] font-bold text-muted-foreground">{title}</p>
+      <p className="text-xs font-medium leading-relaxed">{address}</p>
+      <Button asChild variant="outline" size="sm" className="h-7 w-full gap-1.5 text-xs">
         <a
-          href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(address)}`}
+          href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(query)}`}
           target="_blank"
           rel="noreferrer"
         >
-          <Navigation className="size-4" />
-          الموقع
+          <Navigation className="size-3.5 text-primary" />
+          فتح الملاحة على الخريطة
         </a>
       </Button>
     </div>
