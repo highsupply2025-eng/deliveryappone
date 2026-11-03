@@ -138,6 +138,8 @@ function CourierWork({ userId }: { userId: string }) {
   const [code, setCode] = useState("");
   const [alertEnabled, setAlertEnabled] = useState(true);
   const [coords, setCoords] = useState<{ latitude: number; longitude: number } | null>(null);
+  const coordsRef = useRef<{ latitude: number; longitude: number } | null>(null);
+  const stablePortraitRef = useRef<{ baseKey: string; url: string } | null>(null);
   const [showLiveSelfieModal, setShowLiveSelfieModal] = useState(false);
   const [autoPromptedToday, setAutoPromptedToday] = useState(false);
   const [supportTopic, setSupportTopic] = useState("تأخر استلام الطلب من المطعم");
@@ -160,26 +162,34 @@ function CourierWork({ userId }: { userId: string }) {
     if (typeof navigator === "undefined" || !navigator.geolocation) return;
     const watchId = navigator.geolocation.watchPosition(
       (pos) => {
-        setCoords({
-          latitude: pos.coords.latitude,
-          longitude: pos.coords.longitude,
-        });
+        const nextLat = Number(pos.coords.latitude.toFixed(4));
+        const nextLng = Number(pos.coords.longitude.toFixed(4));
+        const prev = coordsRef.current;
+        coordsRef.current = { latitude: nextLat, longitude: nextLng };
+        if (
+          !prev ||
+          Math.abs(prev.latitude - nextLat) >= 0.0005 ||
+          Math.abs(prev.longitude - nextLng) >= 0.0005
+        ) {
+          setCoords({ latitude: nextLat, longitude: nextLng });
+        }
       },
       () => {
         /* fallback */
       },
-      { enableHighAccuracy: true, maximumAge: 5000, timeout: 15000 },
+      { enableHighAccuracy: true, maximumAge: 15000, timeout: 15000 },
     );
     return () => navigator.geolocation.clearWatch(watchId);
   }, []);
 
   const dashboard = useQuery({
-    queryKey: ["courier-dashboard", userId, coords?.latitude ?? null, coords?.longitude ?? null],
+    queryKey: ["courier-dashboard", userId],
+    placeholderData: (prev) => prev,
     queryFn: async () => {
       return await dashboardFn({
         data: {
-          latitude: coords?.latitude ?? null,
-          longitude: coords?.longitude ?? null,
+          latitude: coordsRef.current?.latitude ?? null,
+          longitude: coordsRef.current?.longitude ?? null,
         },
       });
     },
@@ -192,6 +202,14 @@ function CourierWork({ userId }: { userId: string }) {
     });
 
   const profile = dashboard.data?.profile;
+  const rawPortraitUrl = profile?.portrait_url ?? null;
+  if (rawPortraitUrl) {
+    const baseKey = rawPortraitUrl.split("?")[0] ?? rawPortraitUrl;
+    if (!stablePortraitRef.current || stablePortraitRef.current.baseKey !== baseKey) {
+      stablePortraitRef.current = { baseKey, url: rawPortraitUrl };
+    }
+  }
+  const stablePortraitUrl = stablePortraitRef.current?.url ?? rawPortraitUrl;
   const shift = dashboard.data?.activeShift ?? null;
   const isOnline = !!shift && shift.status === "active";
   const activeOrders = dashboard.data?.activeOrders ?? [];
@@ -406,10 +424,10 @@ function CourierWork({ userId }: { userId: string }) {
             title="الملف الشخصي وصورة المندوب"
             className="relative flex size-11 shrink-0 items-center justify-center overflow-hidden rounded-full border-2 border-primary bg-secondary text-foreground shadow-xs"
           >
-            {profile?.portrait_url ? (
+            {stablePortraitUrl ? (
               <img
-                src={profile.portrait_url}
-                alt={profile.full_name}
+                src={stablePortraitUrl}
+                alt={profile?.full_name ?? "صورة المندوب"}
                 className="size-full object-cover"
               />
             ) : (
@@ -1235,10 +1253,10 @@ function CourierWork({ userId }: { userId: string }) {
             <div className="rounded-2xl border bg-card p-5 shadow-xs space-y-4">
               <div className="flex items-center gap-4">
                 <div className="relative flex size-20 shrink-0 items-center justify-center overflow-hidden rounded-2xl border-2 border-primary bg-secondary">
-                  {profile?.portrait_url ? (
+                  {stablePortraitUrl ? (
                     <img
-                      src={profile.portrait_url}
-                      alt={profile.full_name}
+                      src={stablePortraitUrl}
+                      alt={profile?.full_name ?? "صورة المندوب"}
                       className="size-full object-cover"
                     />
                   ) : (
@@ -1319,8 +1337,10 @@ function CourierWork({ userId }: { userId: string }) {
                   <div className="flex flex-wrap gap-1.5">
                     {Object.entries(profile.documents).map(([docKey, docUrl]) => {
                       const docLabels: Record<string, string> = {
+                        identity: "الهوية الوطنية / الإقامة",
                         id_card: "الهوية الوطنية / الإقامة",
                         driving_license: "رخصة القيادة",
+                        license: "رخصة القيادة",
                         portrait: "الصورة الشخصية",
                       };
                       return (
@@ -1352,33 +1372,78 @@ function CourierWork({ userId }: { userId: string }) {
         )}
       </main>
 
-      {/* Bottom Navigation Bar for FoodHub Rider */}
-      <nav className="fixed inset-x-0 bottom-0 z-20 flex border-t bg-card pb-[env(safe-area-inset-bottom)] shadow-sm">
-        {[
-          { id: "current" as RiderTab, label: "الطلب والشيفت", icon: Bike },
-          { id: "map" as RiderTab, label: "الخريطة", icon: MapIcon },
-          { id: "history" as RiderTab, label: `السابقة (${completedCount})`, icon: History },
-          { id: "support" as RiderTab, label: "دعم المناديب", icon: Headphones },
-          { id: "profile" as RiderTab, label: "الملف الشخصي", icon: User },
-        ].map((item) => (
-          <Button
-            key={item.id}
-            variant="ghost"
-            onClick={() => setTab(item.id)}
-            className={`flex flex-1 flex-col items-center gap-0.5 py-2 text-[11px] ${
-              tab === item.id ? "font-bold text-primary" : "text-muted-foreground"
-            }`}
-          >
-            <item.icon className="size-5" />
-            <span>{item.label}</span>
-          </Button>
-        ))}
+      {/* Upgraded Bottom Navigation Dock for FoodHub Rider */}
+      <nav
+        aria-label="شريط التنقل السفلي للمندوب"
+        className="fixed inset-x-0 bottom-0 z-30 border-t border-border/80 bg-card/95 backdrop-blur-md px-2 pt-1.5 pb-[max(0.5rem,env(safe-area-inset-bottom))] shadow-[0_-4px_20px_rgba(15,23,42,0.06)]"
+      >
+        <div className="mx-auto grid max-w-lg grid-cols-5 gap-1">
+          {[
+            {
+              id: "current" as RiderTab,
+              label: "الطلب والشيفت",
+              icon: Bike,
+              badge: activeOrders.length > 0 ? activeOrders.length : undefined,
+            },
+            { id: "map" as RiderTab, label: "الخريطة", icon: MapIcon },
+            {
+              id: "history" as RiderTab,
+              label: "السابقة",
+              icon: History,
+              badge: completedCount > 0 ? completedCount : undefined,
+            },
+            { id: "support" as RiderTab, label: "دعم المناديب", icon: Headphones },
+            { id: "profile" as RiderTab, label: "الملف الشخصي", icon: User },
+          ].map((item) => {
+            const active = tab === item.id;
+            return (
+              <button
+                key={item.id}
+                type="button"
+                aria-current={active ? "page" : undefined}
+                onClick={() => setTab(item.id)}
+                className="group relative flex min-h-[60px] flex-col items-center justify-center gap-1 rounded-2xl px-1 py-1.5 transition-all"
+              >
+                {active && (
+                  <span className="absolute top-0 h-1 w-7 rounded-full bg-primary" />
+                )}
+                <span
+                  className={`relative flex h-8 w-12 items-center justify-center rounded-2xl transition-all duration-200 ${
+                    active
+                      ? "bg-primary text-primary-foreground shadow-xs scale-105"
+                      : "text-muted-foreground group-hover:bg-secondary group-hover:text-foreground"
+                  }`}
+                >
+                  <item.icon className={`size-5 ${active ? "stroke-[2.4]" : "stroke-[1.9]"}`} />
+                  {item.badge != null && (
+                    <span
+                      className={`absolute -top-1 -start-1 flex h-4 min-w-4 items-center justify-center rounded-full px-1 text-[9px] font-black ${
+                        active
+                          ? "bg-foreground text-background"
+                          : "bg-primary text-primary-foreground"
+                      }`}
+                    >
+                      {item.badge}
+                    </span>
+                  )}
+                </span>
+                <span
+                  className={`text-[11px] leading-tight transition-colors ${
+                    active ? "font-extrabold text-foreground" : "font-medium text-muted-foreground"
+                  }`}
+                >
+                  {item.label}
+                </span>
+              </button>
+            );
+          })}
+        </div>
       </nav>
 
       {/* Daily Live Selfie Identity Verification Modal */}
       {showLiveSelfieModal && (
         <LiveSelfieVerificationModal
-          registeredPortraitUrl={profile?.portrait_url ?? null}
+          registeredPortraitUrl={stablePortraitUrl ?? null}
           hasActiveOrder={activeOrders.some((o) => o.courier_id === userId)}
           onClose={() => setShowLiveSelfieModal(false)}
           onSubmit={async (dataUrl, matched) => {

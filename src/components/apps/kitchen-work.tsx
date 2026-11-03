@@ -127,6 +127,7 @@ function Tickets({ userId, admin }: { userId: string; admin: boolean }) {
       if (error) throw error;
       return data;
     },
+    placeholderData: (prev) => prev,
   });
 
   const orders = useQuery({
@@ -146,6 +147,7 @@ function Tickets({ userId, admin }: { userId: string; admin: boolean }) {
       if (error) throw error;
       return data;
     },
+    placeholderData: (prev) => prev,
   });
 
   const allOrders = orders.data ?? [];
@@ -624,21 +626,56 @@ function Tickets({ userId, admin }: { userId: string; admin: boolean }) {
         )}
       </main>
 
-      {/* Bottom Mobile Navigation Bar */}
-      <nav className="fixed inset-x-0 bottom-0 z-20 flex border-t bg-card pb-[env(safe-area-inset-bottom)] shadow-sm sm:hidden">
-        {tabs.map((item) => (
-          <Button
-            key={item.key}
-            variant="ghost"
-            onClick={() => setTab(item.key)}
-            className={`flex flex-1 flex-col items-center gap-0.5 py-2 text-[10px] ${
-              tab === item.key ? "font-bold text-primary" : "text-muted-foreground"
-            }`}
-          >
-            <item.icon className="size-4" />
-            <span>{item.label}</span>
-          </Button>
-        ))}
+      {/* Upgraded Bottom Mobile Navigation Dock */}
+      <nav
+        aria-label="شريط التنقل السفلي للمتجر"
+        className="fixed inset-x-0 bottom-0 z-30 border-t border-border/80 bg-card/95 backdrop-blur-md px-1.5 pt-1.5 pb-[max(0.5rem,env(safe-area-inset-bottom))] shadow-[0_-4px_20px_rgba(15,23,42,0.06)] sm:hidden"
+      >
+        <div className="mx-auto grid max-w-lg grid-cols-6 gap-0.5">
+          {tabs.map((item) => {
+            const active = tab === item.key;
+            return (
+              <button
+                key={item.key}
+                type="button"
+                aria-current={active ? "page" : undefined}
+                onClick={() => setTab(item.key)}
+                className="group relative flex min-h-[60px] flex-col items-center justify-center gap-1 rounded-2xl px-0.5 py-1.5 transition-all"
+              >
+                {active && (
+                  <span className="absolute top-0 h-1 w-6 rounded-full bg-primary" />
+                )}
+                <span
+                  className={`relative flex h-8 w-10 items-center justify-center rounded-2xl transition-all duration-200 ${
+                    active
+                      ? "bg-primary text-primary-foreground shadow-xs scale-105"
+                      : "text-muted-foreground group-hover:bg-secondary group-hover:text-foreground"
+                  }`}
+                >
+                  <item.icon className={`size-4.5 ${active ? "stroke-[2.4]" : "stroke-[1.9]"}`} />
+                  {item.badge != null && item.badge > 0 && (
+                    <span
+                      className={`absolute -top-1 -start-1 flex h-4 min-w-4 items-center justify-center rounded-full px-1 text-[9px] font-black ${
+                        active
+                          ? "bg-foreground text-background"
+                          : "bg-primary text-primary-foreground"
+                      }`}
+                    >
+                      {item.badge}
+                    </span>
+                  )}
+                </span>
+                <span
+                  className={`text-[10px] leading-tight transition-colors ${
+                    active ? "font-extrabold text-foreground" : "font-medium text-muted-foreground"
+                  }`}
+                >
+                  {item.label}
+                </span>
+              </button>
+            );
+          })}
+        </div>
       </nav>
     </div>
   );

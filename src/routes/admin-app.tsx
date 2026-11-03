@@ -159,6 +159,7 @@ function Panel() {
   const accounts = useQuery({
     queryKey: ["admin-app-accounts"],
     queryFn: () => listAccounts(),
+    placeholderData: (prev) => prev,
   });
 
   const orders = useQuery({
@@ -175,6 +176,7 @@ function Panel() {
       return (data ?? []).filter((o) => isAdminOrderVisible(o, nowMs));
     },
     refetchInterval: 30000,
+    placeholderData: (prev) => prev,
   });
 
   const handleMarkOrderCompleted = async (orderId: string, completed: boolean) => {
@@ -203,6 +205,7 @@ function Panel() {
         .order("created_at", { ascending: false });
       return data ?? [];
     },
+    placeholderData: (prev) => prev,
   });
 
   const refresh = () =>
@@ -658,26 +661,57 @@ function Panel() {
         )}
       </main>
 
-      <nav className="fixed inset-x-0 bottom-0 z-20 flex border-t bg-card/95 backdrop-blur pb-[env(safe-area-inset-bottom)] shadow-sm">
-        <div className="mx-auto flex w-full max-w-3xl">
-          {tabs.map((t) => (
-            <Button
-              variant="ghost"
-              key={t.id}
-              onClick={() => {
-                setTab(t.id);
-                setSelectedCourierId(null);
-              }}
-              className={`flex flex-1 flex-col items-center gap-0.5 py-2.5 text-xs ${
-                tab === t.id ? "font-bold text-primary" : "text-muted-foreground"
-              }`}
-            >
-              <t.icon className="size-5" />
-              <span>
-                {t.label} ({t.n})
-              </span>
-            </Button>
-          ))}
+      <nav
+        aria-label="شريط التنقل السفلي للإدارة"
+        className="fixed inset-x-0 bottom-0 z-30 border-t border-border/80 bg-card/95 backdrop-blur-md px-2 pt-1.5 pb-[max(0.5rem,env(safe-area-inset-bottom))] shadow-[0_-4px_20px_rgba(15,23,42,0.06)]"
+      >
+        <div className="mx-auto grid w-full max-w-3xl grid-cols-4 gap-1">
+          {tabs.map((t) => {
+            const active = tab === t.id;
+            return (
+              <button
+                key={t.id}
+                type="button"
+                aria-current={active ? "page" : undefined}
+                onClick={() => {
+                  setTab(t.id);
+                  setSelectedCourierId(null);
+                }}
+                className="group relative flex min-h-[60px] flex-col items-center justify-center gap-1 rounded-2xl px-1 py-1.5 transition-all"
+              >
+                {active && (
+                  <span className="absolute top-0 h-1 w-8 rounded-full bg-primary" />
+                )}
+                <span
+                  className={`relative flex h-8 w-12 items-center justify-center rounded-2xl transition-all duration-200 ${
+                    active
+                      ? "bg-primary text-primary-foreground shadow-xs scale-105"
+                      : "text-muted-foreground group-hover:bg-secondary group-hover:text-foreground"
+                  }`}
+                >
+                  <t.icon className={`size-5 ${active ? "stroke-[2.4]" : "stroke-[1.9]"}`} />
+                  {t.n > 0 && (
+                    <span
+                      className={`absolute -top-1 -start-1 flex h-4 min-w-4 items-center justify-center rounded-full px-1 text-[9px] font-black ${
+                        active
+                          ? "bg-foreground text-background"
+                          : "bg-primary text-primary-foreground"
+                      }`}
+                    >
+                      {t.n}
+                    </span>
+                  )}
+                </span>
+                <span
+                  className={`text-[11px] leading-tight transition-colors ${
+                    active ? "font-extrabold text-foreground" : "font-medium text-muted-foreground"
+                  }`}
+                >
+                  {t.label}
+                </span>
+              </button>
+            );
+          })}
         </div>
       </nav>
     </div>

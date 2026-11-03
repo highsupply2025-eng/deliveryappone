@@ -10,6 +10,8 @@ import {
   evaluateOrderCourierProximity,
 } from "./courier-shift-rules";
 
+const signedDocUrlCache = new Map<string, { url: string; expiresAt: number }>();
+
 export const assignCourierShift = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d: unknown) => shiftAssignmentSchema.parse(d))
@@ -428,14 +430,44 @@ export const getCourierDashboardData = createServerFn({ method: "POST" })
     const meta = (u?.user_metadata ?? {}) as Record<string, unknown>;
     const app = appRes.data;
     const prof = profRes.data;
-    const docs = ((app?.documents ?? {}) as Record<string, string>) || {};
+    const rawDocs = ((app?.documents ?? {}) as Record<string, string>) || {};
+
+    const getCachedSignedUrl = async (storagePath: string): Promise<string | null> => {
+      if (!storagePath) return null;
+      if (storagePath.startsWith("http://") || storagePath.startsWith("https://") || storagePath.startsWith("data:")) {
+        return storagePath;
+      }
+      const cached = signedDocUrlCache.get(storagePath);
+      if (cached && cached.expiresAt > Date.now()) {
+        return cached.url;
+      }
+      const { data: signed } = await supabaseAdmin.storage
+        .from("onboarding-documents")
+        .createSignedUrl(storagePath, 3600);
+      if (signed?.signedUrl) {
+        signedDocUrlCache.set(storagePath, {
+          url: signed.signedUrl,
+          expiresAt: Date.now() + 45 * 60 * 1000,
+        });
+        return signed.signedUrl;
+      }
+      return null;
+    };
+
+    const docs: Record<string, string> = {};
+    for (const [k, v] of Object.entries(rawDocs)) {
+      if (typeof v === "string" && v.trim()) {
+        const signed = await getCachedSignedUrl(v);
+        if (signed) docs[k] = signed;
+      }
+    }
 
     let portraitUrl: string | null = (meta["last_live_photo"] as string) || null;
     if (docs["portrait"]) {
-      const { data: signed } = await supabaseAdmin.storage
-        .from("onboarding-documents")
-        .createSignedUrl(docs["portrait"], 3600);
-      if (signed?.signedUrl) portraitUrl = signed.signedUrl;
+      portraitUrl = docs["portrait"];
+    } else if (rawDocs["portrait"]) {
+      const signed = await getCachedSignedUrl(rawDocs["portrait"]);
+      if (signed) portraitUrl = signed;
     }
 
     const shifts = shiftsRes.data ?? [];

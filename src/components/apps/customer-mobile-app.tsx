@@ -167,6 +167,7 @@ export function CustomerMobileApp() {
       if (ms.error) throw ms.error;
       return customerCatalog(rs.data ?? [], ms.data ?? []);
     },
+    placeholderData: (prev) => prev,
   });
 
   const profile = useQuery({
@@ -182,6 +183,7 @@ export function CustomerMobileApp() {
       if (error) throw error;
       return data;
     },
+    placeholderData: (prev) => prev,
   });
 
   useEffect(() => {
@@ -1078,33 +1080,68 @@ export function CustomerMobileApp() {
           </div>
         )}
 
-        <nav className="customer-bottom-nav" aria-label="تنقل تطبيق العميل">
+        <nav
+          className="fixed inset-x-0 bottom-0 z-30 mx-auto grid w-full max-w-[680px] grid-cols-4 gap-1 border-t bg-card/95 px-2 pt-1.5 pb-[calc(0.45rem+env(safe-area-inset-bottom))] shadow-[0_-4px_20px_rgba(15,23,42,0.06)] backdrop-blur"
+          aria-label="تنقل تطبيق العميل"
+        >
           {[
-            { id: "home" as Tab, label: ar ? "الرئيسية" : "Home", icon: Home },
-            { id: "cart" as Tab, label: ar ? "السلة" : "Cart", icon: ShoppingBag },
-            { id: "radar" as Tab, label: ar ? "طلباتي" : "Orders", icon: Receipt },
-            { id: "profile" as Tab, label: ar ? "حسابي" : "Account", icon: User },
-          ].map((n) => (
-            <Button
-              key={n.id}
-              variant="ghost"
-              aria-current={
-                (tab === n.id || (n.id === "home" && tab === "kitchens")) && !selected
-                  ? "page"
-                  : undefined
-              }
-              onClick={() => go(n.id)}
-              className="customer-nav-item"
-            >
-              <span>
-                <n.icon />
-                {n.id === "cart" && lines.length > 0 && (
-                  <b>{lines.reduce((v, l) => v + l.quantity, 0)}</b>
+            { id: "home" as Tab, label: ar ? "الرئيسية" : "Home", icon: Home, badge: null as number | null },
+            {
+              id: "cart" as Tab,
+              label: ar ? "السلة" : "Cart",
+              icon: ShoppingBag,
+              badge: lines.length > 0 ? lines.reduce((v, l) => v + l.quantity, 0) : null,
+            },
+            { id: "radar" as Tab, label: ar ? "طلباتي" : "Orders", icon: Receipt, badge: null as number | null },
+            { id: "profile" as Tab, label: ar ? "حسابي" : "Account", icon: User, badge: null as number | null },
+          ].map((n) => {
+            const isActive =
+              (tab === n.id || (n.id === "home" && tab === "kitchens")) && !selected;
+            return (
+              <button
+                key={n.id}
+                type="button"
+                aria-current={isActive ? "page" : undefined}
+                onClick={() => go(n.id)}
+                className={`group relative flex min-h-[60px] flex-col items-center justify-center gap-1 rounded-2xl px-1 py-1.5 transition-all select-none ${
+                  isActive
+                    ? "text-foreground"
+                    : "text-muted-foreground hover:bg-muted/60 hover:text-foreground"
+                }`}
+              >
+                {isActive && (
+                  <span className="absolute top-0 h-1 w-8 rounded-full bg-primary" />
                 )}
-              </span>
-              <small>{n.label}</small>
-            </Button>
-          ))}
+                <div
+                  className={`relative flex h-8 w-12 items-center justify-center rounded-2xl transition-all ${
+                    isActive
+                      ? "bg-primary text-primary-foreground shadow-xs scale-105"
+                      : "bg-transparent group-hover:bg-muted"
+                  }`}
+                >
+                  <n.icon className="size-4.5 stroke-[2.2]" />
+                  {n.badge !== null && n.badge > 0 && (
+                    <span
+                      className={`absolute -top-1.5 -left-1.5 flex h-4 min-w-4 items-center justify-center rounded-full px-1 text-[9px] font-black shadow-xs ${
+                        isActive
+                          ? "bg-foreground text-background"
+                          : "bg-primary text-primary-foreground"
+                      }`}
+                    >
+                      {n.badge}
+                    </span>
+                  )}
+                </div>
+                <span
+                  className={`max-w-full truncate text-[11px] leading-tight ${
+                    isActive ? "font-extrabold text-foreground" : "font-medium"
+                  }`}
+                >
+                  {n.label}
+                </span>
+              </button>
+            );
+          })}
         </nav>
 
         <Dialog.Root
