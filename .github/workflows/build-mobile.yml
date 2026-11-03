@@ -83,10 +83,17 @@ jobs:
 
           echo "Running Gradle assemble${variant}Release..."
           ./gradlew "assemble${variant}Release" --no-daemon --stacktrace 2>&1 | tee "$RUNNER_TEMP/gradle-build.log" || {
-            echo "::error::Gradle assemble${variant}Release failed. Last 40 lines:"
-            tail -n 40 "$RUNNER_TEMP/gradle-build.log" | while IFS= read -r line; do
-              echo "::error::$line"
+            FAILED_LINE=$(grep -m 1 -E "Execution failed for task|FAILURE: Build failed" "$RUNNER_TEMP/gradle-build.log" || echo "Build failed")
+            echo "::error title=Gradle Failed::$FAILED_LINE"
+            grep -A 25 -E "What went wrong:|Execution failed for task" "$RUNNER_TEMP/gradle-build.log" | while IFS= read -r l; do
+              echo "::error::$l"
             done
+            {
+              echo "### Gradle Build Error (${FOODHUB_APP})"
+              echo '```'
+              grep -A 35 -E "What went wrong:|Execution failed for task" "$RUNNER_TEMP/gradle-build.log" || tail -n 50 "$RUNNER_TEMP/gradle-build.log"
+              echo '```'
+            } >> "$GITHUB_STEP_SUMMARY"
             cp "$RUNNER_TEMP/gradle-build.log" "gradle-failure-${FOODHUB_APP}.log" || true
             exit 1
           }
