@@ -16,6 +16,9 @@ import {
   SlidersHorizontal,
   BadgePercent,
   Check,
+  ShoppingBag,
+  ShoppingCart,
+  CheckCircle2,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import logoRomansiah from "@/assets/restaurant-alromansiah.png.asset.json";
@@ -23,6 +26,11 @@ import logoShawarmaHouse from "@/assets/restaurant-shawarma-house.png.asset.json
 import logoKfc from "@/assets/restaurant-kfc.png.asset.json";
 import logoMcdonalds from "@/assets/restaurant-mcdonalds.png.asset.json";
 import type { CatalogMeal, CatalogRestaurant } from "@/lib/customer-catalog";
+import {
+  FOODHUB_MARKET_STORE,
+  FOODHUB_MARKET_CATEGORIES,
+  FOODHUB_MARKET_PRODUCTS,
+} from "@/lib/foodhub-market";
 
 interface Props {
   ar: boolean;
@@ -99,6 +107,19 @@ const showcaseRestaurants = [
 ];
 
 const promoBanners = [
+  {
+    id: 0,
+    titleAr: "FoodHub Market · التوصيل فى 15 دقيقة ⚡",
+    titleEn: "FoodHub Market · 15-Minute Delivery ⚡",
+    descAr: "شعارنا التوصيل فى 15 دقيقة — مقاضي بيتك والبقالة السريعة لبابك فوراً",
+    descEn: "Our Slogan: 15-Min Delivery — Fresh grocery & essentials to your door",
+    badgeAr: "شعارنا التوصيل فى 15 دقيقة ⚡",
+    badgeEn: "15-Min Delivery ⚡",
+    gradient: "from-emerald-600 via-teal-700 to-amber-600",
+    image:
+      "https://images.unsplash.com/photo-1578916171728-46686eac8d58?w=800&auto=format&fit=crop&q=80",
+    isMarket: true,
+  },
   {
     id: 1,
     titleAr: "خصم 30% على وجبتك الأولى 🔥",
@@ -193,6 +214,8 @@ function getRestaurantCover(r: CatalogRestaurant): string {
 export function CustomerDiscovery(p: Props) {
   const [slide, setSlide] = useState(0);
   const [activeFilter, setActiveFilter] = useState<string>("all");
+  const [serviceMode, setServiceMode] = useState<"food" | "market">("food");
+  const [marketCategory, setMarketCategory] = useState<string>("all");
 
   // Auto rotate banner carousel
   useEffect(() => {
@@ -203,6 +226,22 @@ export function CustomerDiscovery(p: Props) {
   }, []);
 
   const currentBanner = promoBanners[slide % promoBanners.length]!;
+
+  const marketProducts = useMemo(() => {
+    const selectedAisle = FOODHUB_MARKET_CATEGORIES.find((c) => c.id === marketCategory);
+    return FOODHUB_MARKET_PRODUCTS.filter((m) => {
+      const matchCat =
+        marketCategory === "all" ||
+        (selectedAisle && m.category_ar === selectedAisle.nameAr) ||
+        (selectedAisle && m.category_en?.toLowerCase() === selectedAisle.nameEn.toLowerCase());
+      const matchSearch =
+        !p.search ||
+        `${m.name_ar} ${m.name_en || ""} ${m.description_ar || ""}`
+          .toLowerCase()
+          .includes(p.search.toLowerCase());
+      return matchCat && matchSearch;
+    });
+  }, [marketCategory, p.search]);
 
   // Match category filters with existing categories
   const categoriesList = useMemo(() => {
@@ -254,8 +293,41 @@ export function CustomerDiscovery(p: Props) {
 
   return (
     <div className="customer-discovery pb-8">
+      {/* 0. Top Service Switcher (Restaurants vs. FoodHub Market) */}
+      <div className="px-4 pt-2 pb-1.5">
+        <div className="grid grid-cols-2 p-1 bg-slate-100 rounded-2xl border border-slate-200/80 shadow-xs">
+          <button
+            type="button"
+            onClick={() => setServiceMode("food")}
+            className={`flex items-center justify-center gap-2 py-2 px-3 rounded-xl text-xs font-black transition-all ${
+              serviceMode === "food"
+                ? "bg-white text-slate-900 shadow-sm shadow-slate-200/80"
+                : "text-slate-500 hover:text-slate-900"
+            }`}
+          >
+            <UtensilsCrossed className="w-4 h-4 text-amber-500" />
+            <span>{p.ar ? "المطاعم والمطابخ" : "Restaurants"}</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => setServiceMode("market")}
+            className={`relative flex items-center justify-center gap-1.5 py-2 px-3 rounded-xl text-xs font-black transition-all ${
+              serviceMode === "market"
+                ? "bg-gradient-to-r from-emerald-600 to-teal-700 text-white shadow-sm shadow-emerald-600/30 font-bold"
+                : "text-slate-600 hover:text-slate-900"
+            }`}
+          >
+            <Zap className="w-3.5 h-3.5 text-amber-300 fill-amber-300" />
+            <span>FoodHub Market</span>
+            <span className="text-[10px] px-1.5 py-0.2 rounded-full bg-amber-400 text-slate-950 font-black">
+              15 د ⚡
+            </span>
+          </button>
+        </div>
+      </div>
+
       {/* 1. Global-Style Search Input */}
-      <div className="px-4 pt-2 pb-3">
+      <div className="px-4 pt-1 pb-3">
         <div className="relative flex items-center bg-slate-50 border border-slate-200/90 rounded-2xl shadow-sm hover:border-amber-400 focus-within:border-amber-500 focus-within:ring-2 focus-within:ring-amber-500/20 transition-all duration-200">
           <div className="p-3.5 text-amber-500 flex items-center justify-center">
             <Search className="w-5 h-5 stroke-[2.2]" />
@@ -263,7 +335,11 @@ export function CustomerDiscovery(p: Props) {
           <input
             aria-label={p.ar ? "البحث عن مطعم أو وجبة" : "Search restaurants or meals"}
             placeholder={
-              p.ar
+              serviceMode === "market"
+                ? p.ar
+                  ? "ابحث في فود هب ماركت (حليب، بيض، خضار، مقاضي...)"
+                  : "Search Market (milk, eggs, fruits, pantry...)"
+                : p.ar
                 ? "ابحث عن مطعم، وجبة، أو نوع طعام..."
                 : "Search restaurants, dishes, cuisines..."
             }
@@ -291,16 +367,26 @@ export function CustomerDiscovery(p: Props) {
         <div className="flex items-center gap-2 overflow-x-auto no-scrollbar pt-2.5 pb-1">
           {[
             { id: "all", labelAr: "الكل", labelEn: "All", icon: Sparkles },
+            { id: "market", labelAr: "⚡ فود هب ماركت (15 دقيقة)", labelEn: "⚡ Market (15m)", icon: Zap },
             { id: "popular", labelAr: "الأكثر طلباً", labelEn: "Popular", icon: Flame },
-            { id: "fast", labelAr: "أسرع توصيل", labelEn: "Fastest", icon: Zap },
+            { id: "fast", labelAr: "أسرع توصيل", labelEn: "Fastest", icon: Clock },
             { id: "free", labelAr: "توصيل مجاني", labelEn: "Free Delivery", icon: Bike },
           ].map((f) => (
             <button
               key={f.id}
               type="button"
-              onClick={() => setActiveFilter(f.id)}
+              onClick={() => {
+                if (f.id === "market") {
+                  setServiceMode("market");
+                } else {
+                  if (serviceMode === "market") setServiceMode("food");
+                  setActiveFilter(f.id);
+                }
+              }}
               className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold whitespace-nowrap transition-all duration-200 ${
-                activeFilter === f.id
+                f.id === "market" && serviceMode === "market"
+                  ? "bg-emerald-600 text-white shadow-sm shadow-emerald-600/30 font-bold"
+                  : activeFilter === f.id && serviceMode !== "market"
                   ? "bg-amber-500 text-slate-950 shadow-sm shadow-amber-500/30 font-bold"
                   : "bg-slate-100 text-slate-600 hover:bg-slate-200/80 border border-slate-200/60"
               }`}
@@ -342,10 +428,24 @@ export function CustomerDiscovery(p: Props) {
               </p>
               <button
                 type="button"
-                onClick={p.onBrowse}
+                onClick={() => {
+                  if (currentBanner.isMarket) {
+                    setServiceMode("market");
+                  } else {
+                    p.onBrowse();
+                  }
+                }}
                 className="inline-flex items-center gap-1.5 px-3.5 py-1.5 bg-slate-950 text-white rounded-xl text-xs font-bold shadow-md hover:bg-slate-900 transition-transform active:scale-95"
               >
-                <span>{p.ar ? "تصفح المطاعم" : "Explore Now"}</span>
+                <span>
+                  {currentBanner.isMarket
+                    ? p.ar
+                      ? "تسوق في الماركت ⚡"
+                      : "Shop Market ⚡"
+                    : p.ar
+                    ? "تصفح المطاعم"
+                    : "Explore Now"}
+                </span>
                 <ChevronLeft className="w-3.5 h-3.5" />
               </button>
             </div>
@@ -368,6 +468,200 @@ export function CustomerDiscovery(p: Props) {
         </div>
       )}
 
+      {serviceMode === "market" ? (
+        <div className="px-4 space-y-6">
+          {/* Market Hero Slogan Card */}
+          <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-emerald-600 via-teal-700 to-slate-900 p-5 text-white shadow-xl border border-emerald-500/20">
+            <div className="relative z-10 text-start">
+              <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-400 text-slate-950 text-xs font-black shadow-md mb-2">
+                <Zap className="w-3.5 h-3.5 fill-slate-950 text-slate-950" />
+                <span>{p.ar ? "شعارنا التوصيل فى 15 دقيقة ⚡" : "Our Slogan: 15-Minute Delivery ⚡"}</span>
+              </div>
+              <h2 className="text-xl sm:text-2xl font-black tracking-tight text-white mb-1">
+                FoodHub Market | فود هب ماركت
+              </h2>
+              <p className="text-xs text-emerald-100 font-medium leading-relaxed max-w-sm mb-3">
+                {p.ar
+                  ? "مقاضي بيتك والبقالة السريعة مختارة طازجة وتصلك فوراً إلى باب بيتك خلال 15 دقيقة فقط!"
+                  : "Your daily grocery & household essentials delivered fresh to your door in 15 minutes flat!"}
+              </p>
+              <div className="flex flex-wrap items-center gap-2 text-[11px] font-bold">
+                <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-white/15 backdrop-blur-md text-white border border-white/20">
+                  <Clock className="w-3.5 h-3.5 text-amber-300" />
+                  <span>توصيل فوري 15 د</span>
+                </span>
+                <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-white/15 backdrop-blur-md text-white border border-white/20">
+                  <Bike className="w-3.5 h-3.5 text-emerald-300" />
+                  <span>توصيل مجاني 0 ر.س</span>
+                </span>
+                <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-white/15 backdrop-blur-md text-white border border-white/20">
+                  <CheckCircle2 className="w-3.5 h-3.5 text-teal-300" />
+                  <span>طازج ومضمون 100%</span>
+                </span>
+              </div>
+            </div>
+
+            {/* Background glowing glow */}
+            <div className="absolute -top-12 -left-12 w-48 h-48 bg-amber-400/20 rounded-full blur-3xl pointer-events-none" />
+            <div className="absolute -bottom-8 -right-8 w-40 h-40 bg-emerald-400/20 rounded-full blur-2xl pointer-events-none" />
+          </div>
+
+          {/* Market Aisles / Categories */}
+          <div>
+            <div className="flex items-center justify-between mb-3">
+              <h3 className="text-base font-black text-slate-900 tracking-tight flex items-center gap-2">
+                <span>{p.ar ? "أقسام فود هب ماركت" : "Market Aisles"}</span>
+                <span className="text-xs px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 font-bold">
+                  {FOODHUB_MARKET_CATEGORIES.length} أقسام
+                </span>
+              </h3>
+            </div>
+            <div className="flex items-center gap-2.5 overflow-x-auto no-scrollbar py-1">
+              {FOODHUB_MARKET_CATEGORIES.map((mc) => {
+                const isSelected = marketCategory === mc.id;
+                return (
+                  <button
+                    key={mc.id}
+                    type="button"
+                    onClick={() => setMarketCategory(mc.id)}
+                    className="flex flex-col items-center gap-1.5 shrink-0 group focus:outline-none transition-all"
+                  >
+                    <div
+                      className={`w-14 h-14 rounded-2xl flex items-center justify-center text-2xl transition-all duration-200 shadow-sm ${
+                        isSelected
+                          ? "bg-gradient-to-br from-emerald-600 to-teal-700 text-white ring-4 ring-emerald-500/25 scale-105 shadow-md shadow-emerald-600/30"
+                          : "bg-white border border-slate-200/90 text-slate-700 hover:border-emerald-300 hover:bg-emerald-50/40"
+                      }`}
+                    >
+                      {mc.emoji}
+                    </div>
+                    <span
+                      className={`text-xs font-semibold tracking-tight transition-colors text-center max-w-[70px] truncate ${
+                        isSelected ? "text-emerald-700 font-black" : "text-slate-600 group-hover:text-slate-900"
+                      }`}
+                    >
+                      {p.ar ? mc.nameAr : mc.nameEn}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* Market Products Grid */}
+          <div>
+            <div className="flex items-center justify-between mb-3.5">
+              <div>
+                <h3 className="text-base font-black text-slate-900 tracking-tight flex items-center gap-2">
+                  <span>{p.ar ? "منتجات ومقاضي الماركت" : "Market Essentials"}</span>
+                  <span className="px-2 py-0.5 rounded-full text-xs font-bold bg-emerald-100 text-emerald-800">
+                    {marketProducts.length}
+                  </span>
+                </h3>
+                <p className="text-xs text-slate-500">
+                  {p.ar
+                    ? "شعارنا التوصيل فى 15 دقيقة ⚡ أسعار سوبرماركت رسمية"
+                    : "Our Slogan: 15-Minute Delivery ⚡ Official Supermarket Prices"}
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => p.onRestaurant(FOODHUB_MARKET_STORE)}
+                className="text-xs font-bold text-emerald-700 hover:text-emerald-800 flex items-center gap-1"
+              >
+                <span>{p.ar ? "زيارة المتجر الكامل" : "Visit Full Store"}</span>
+                <ChevronLeft className="w-3.5 h-3.5" />
+              </button>
+            </div>
+
+            {marketProducts.length === 0 ? (
+              <div className="py-12 text-center bg-slate-50 rounded-2xl border border-dashed border-slate-200">
+                <ShoppingBag className="w-10 h-10 text-slate-300 mx-auto mb-2" />
+                <p className="text-sm font-bold text-slate-600">
+                  {p.ar ? "لا توجد منتجات مطابقة في هذا القسم" : "No products found in this aisle"}
+                </p>
+              </div>
+            ) : (
+              <div className="grid grid-cols-2 gap-3.5 sm:gap-4">
+                {marketProducts.map((m) => (
+                  <article
+                    key={m.id}
+                    className="bg-white rounded-2xl border border-slate-100 shadow-sm hover:shadow-md transition-all duration-200 overflow-hidden flex flex-col justify-between p-2.5 group"
+                  >
+                    <div>
+                      {/* Product Image with 15-min Badge */}
+                      <div className="relative aspect-square w-full rounded-xl overflow-hidden bg-slate-100 mb-2.5">
+                        <img
+                          loading="lazy"
+                          src={m.image_url || getMealImage(m)}
+                          alt={m.name_ar}
+                          className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                        />
+
+                        {/* 15 Min Badge */}
+                        <span className="absolute top-2 right-2 bg-emerald-600 text-white text-[10px] font-black px-2 py-0.5 rounded-lg flex items-center gap-1 shadow-md">
+                          <Zap className="w-3 h-3 text-amber-300 fill-amber-300" />
+                          <span>15 د</span>
+                        </span>
+
+                        {/* Floating Quick Add Button */}
+                        <button
+                          type="button"
+                          aria-label={`إضافة ${m.name_ar} للسلة`}
+                          onClick={() => p.onAdd(m)}
+                          className="absolute bottom-2 left-2 w-9 h-9 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white shadow-md shadow-emerald-600/30 flex items-center justify-center transition-transform active:scale-90"
+                        >
+                          <Plus className="w-5 h-5 stroke-[2.8]" />
+                        </button>
+                      </div>
+
+                      {/* Market Badge */}
+                      <div className="inline-flex items-center gap-1 text-[10px] font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-md mb-1.5 truncate max-w-full">
+                        <Zap className="w-2.5 h-2.5 text-amber-500" />
+                        <span>FoodHub Market · 15 د</span>
+                      </div>
+
+                      {/* Product Title */}
+                      <button
+                        type="button"
+                        onClick={() => p.onMeal(m)}
+                        className="text-start font-bold text-sm text-slate-900 leading-snug line-clamp-1 group-hover:text-emerald-700 transition-colors w-full"
+                      >
+                        {p.ar ? m.name_ar : m.name_en || m.name_ar}
+                      </button>
+
+                      {/* Product Category / Description */}
+                      <p className="text-[11px] text-slate-400 font-medium line-clamp-1 mt-0.5 text-start">
+                        {m.description_ar || m.category_ar}
+                      </p>
+                    </div>
+
+                    {/* Price Tag */}
+                    <div className="pt-2 mt-2 border-t border-slate-50 flex items-baseline justify-between">
+                      <div className="flex items-baseline gap-1">
+                        <span className="text-base font-black text-slate-900">
+                          {Number(m.price).toFixed(2)}
+                        </span>
+                        <span className="text-[10px] font-bold text-emerald-700">
+                          {p.ar ? "ر.س" : "SAR"}
+                        </span>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => p.onMeal(m)}
+                        className="text-[11px] font-bold text-slate-500 hover:text-slate-800"
+                      >
+                        {p.ar ? "التفاصيل" : "Details"}
+                      </button>
+                    </div>
+                  </article>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+      ) : (
+        <>
       {/* 3. Visual Categories (Horizontal Story Bubbles) */}
       <div className="px-4 mb-6">
         <div className="flex items-center justify-between mb-3">
@@ -718,6 +1012,8 @@ export function CustomerDiscovery(p: Props) {
           </>
         )}
       </div>
+        </>
+      )}
     </div>
   );
 }

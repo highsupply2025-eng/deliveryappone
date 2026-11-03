@@ -46,6 +46,10 @@ import {
   type CatalogMeal,
   type CatalogRestaurant,
 } from "@/lib/customer-catalog";
+import {
+  FOODHUB_MARKET_STORE,
+  FOODHUB_MARKET_PRODUCTS,
+} from "@/lib/foodhub-market";
 import { Button } from "@/components/ui/button";
 import { FoodHubLogo } from "@/components/food-hub-logo";
 import { CustomerDiscovery } from "./customer-discovery";
@@ -191,8 +195,16 @@ export function CustomerMobileApp() {
     setPhone(profile.data?.phone ?? "");
   }, [profile.data]);
 
-  const restaurants = catalog.data?.restaurants ?? [];
-  const meals = catalog.data?.meals ?? [];
+  const catalogRestaurants = catalog.data?.restaurants ?? [];
+  const catalogMeals = catalog.data?.meals ?? [];
+  const restaurants = useMemo(
+    () => [FOODHUB_MARKET_STORE, ...catalogRestaurants],
+    [catalogRestaurants],
+  );
+  const meals = useMemo(
+    () => [...catalogMeals, ...FOODHUB_MARKET_PRODUCTS],
+    [catalogMeals],
+  );
   const categories = useMemo(() => catalogCategories(meals), [meals]);
   const selected = restaurants.find((r) => r.id === restaurantId);
   const cartRestaurant = restaurants.find((r) => r.id === cart.restaurantId);
