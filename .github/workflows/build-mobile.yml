@@ -30,10 +30,6 @@ jobs:
         with:
           distribution: temurin
           java-version: "21"
-      - name: Setup Android SDK 36
-        uses: android-actions/setup-android@v4
-        with:
-          sdk-version: 36
       - name: Ensure Android SDK 36 Platform
         run: |
           yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --licenses >/dev/null 2>&1 || true
@@ -57,15 +53,22 @@ jobs:
           KEYSTORE_FILE="$RUNNER_TEMP/release.jks"
           KEYSTORE_VALID=0
 
+          CLEAN_STORE_PASS=$(echo "$ANDROID_KEYSTORE_PASSWORD" | tr -d '\r\n')
+          CLEAN_KEY_PASS=$(echo "$ANDROID_KEY_PASSWORD" | tr -d '\r\n')
+
           if [ -n "$ANDROID_KEYSTORE_BASE64" ]; then
             echo "Attempting to decode secret ANDROID_KEYSTORE_BASE64..."
             echo "$ANDROID_KEYSTORE_BASE64" | tr -d '\r\n ' | base64 -d > "$KEYSTORE_FILE" 2>/dev/null || true
             if [ -s "$KEYSTORE_FILE" ]; then
-              if keytool -list -keystore "$KEYSTORE_FILE" -storepass "$ANDROID_KEYSTORE_PASSWORD" >/dev/null 2>&1; then
-                echo "Repository release keystore loaded and verified successfully."
+              DETECTED_ALIAS=$(keytool -list -v -keystore "$KEYSTORE_FILE" -storepass "$CLEAN_STORE_PASS" 2>/dev/null | grep -i "Alias name:" | head -n 1 | sed 's/.*Alias name: *//' | tr -d '\r\n ')
+              if [ -n "$DETECTED_ALIAS" ]; then
+                echo "Found valid alias in keystore: '$DETECTED_ALIAS'"
+                export ANDROID_KEY_ALIAS="$DETECTED_ALIAS"
+                export ANDROID_KEYSTORE_PASSWORD="$CLEAN_STORE_PASS"
+                export ANDROID_KEY_PASSWORD="${CLEAN_KEY_PASS:-$CLEAN_STORE_PASS}"
                 KEYSTORE_VALID=1
               else
-                echo "Warning: Stored keystore exists but failed verification with provided password."
+                echo "Warning: Stored keystore exists but no alias verified with provided store password."
               fi
             fi
           fi
