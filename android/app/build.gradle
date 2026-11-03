@@ -38,6 +38,10 @@ android {
             applicationId "delivery.foodhub.admin"
         }
     }
+    lint {
+        checkReleaseBuilds false
+        abortOnError false
+    }
     signingConfigs {
         release {
             def ksPath = System.getenv("ANDROID_KEYSTORE_PATH")

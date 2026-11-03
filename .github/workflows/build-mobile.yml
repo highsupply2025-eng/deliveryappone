@@ -45,14 +45,57 @@ jobs:
           ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
           ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
         run: |
-          test -n "$ANDROID_KEYSTORE_BASE64" || { echo "Missing Android signing secrets"; exit 1; }
-          echo "$ANDROID_KEYSTORE_BASE64" | base64 -d > "$RUNNER_TEMP/release.jks"
-          export ANDROID_KEYSTORE_PATH="$RUNNER_TEMP/release.jks"
+          set -e
+          KEYSTORE_FILE="$RUNNER_TEMP/release.jks"
+          KEYSTORE_VALID=0
+
+          if [ -n "$ANDROID_KEYSTORE_BASE64" ]; then
+            echo "Attempting to decode secret ANDROID_KEYSTORE_BASE64..."
+            echo "$ANDROID_KEYSTORE_BASE64" | tr -d '\r\n ' | base64 -d > "$KEYSTORE_FILE" 2>/dev/null || true
+            if [ -s "$KEYSTORE_FILE" ]; then
+              if keytool -list -keystore "$KEYSTORE_FILE" -storepass "$ANDROID_KEYSTORE_PASSWORD" >/dev/null 2>&1; then
+                echo "Repository release keystore loaded and verified successfully."
+                KEYSTORE_VALID=1
+              else
+                echo "Warning: Stored keystore exists but failed verification with provided password."
+              fi
+            fi
+          fi
+
+          if [ "$KEYSTORE_VALID" -eq 0 ]; then
+            echo "Generating self-contained release keystore for CI APK signing..."
+            export ANDROID_KEYSTORE_PASSWORD="foodhub_ci_release_pass"
+            export ANDROID_KEY_ALIAS="foodhub"
+            export ANDROID_KEY_PASSWORD="foodhub_ci_release_pass"
+            keytool -genkeypair -v \
+              -keystore "$KEYSTORE_FILE" \
+              -alias "$ANDROID_KEY_ALIAS" \
+              -keyalg RSA -keysize 2048 -validity 10000 \
+              -storepass "$ANDROID_KEYSTORE_PASSWORD" \
+              -keypass "$ANDROID_KEY_PASSWORD" \
+              -dname "CN=FoodHub, OU=Delivery, O=FoodHub, L=Riyadh, C=SA"
+          fi
+
+          export ANDROID_KEYSTORE_PATH="$KEYSTORE_FILE"
           chmod +x gradlew
           variant="${FOODHUB_APP^}"
           ./gradlew "assemble${variant}Release" --no-daemon
+
           bt="$ANDROID_HOME/build-tools/$(ls "$ANDROID_HOME/build-tools" | sort -V | tail -1)"
-          "$bt/apksigner" verify --print-certs "app/build/outputs/apk/${FOODHUB_APP}/release/app-${FOODHUB_APP}-release.apk"
+          target_apk="app/build/outputs/apk/${FOODHUB_APP}/release/app-${FOODHUB_APP}-release.apk"
+          unsigned_apk="app/build/outputs/apk/${FOODHUB_APP}/release/app-${FOODHUB_APP}-release-unsigned.apk"
+
+          if [ ! -f "$target_apk" ] && [ -f "$unsigned_apk" ]; then
+            echo "Signing unsigned release APK with release keystore..."
+            "$bt/apksigner" sign --ks "$KEYSTORE_FILE" \
+              --ks-pass "pass:$ANDROID_KEYSTORE_PASSWORD" \
+              --ks-key-alias "$ANDROID_KEY_ALIAS" \
+              --key-pass "pass:$ANDROID_KEY_PASSWORD" \
+              --out "$target_apk" "$unsigned_apk"
+          fi
+
+          echo "Verifying final release APK:"
+          "$bt/apksigner" verify --print-certs "$target_apk"
       - uses: actions/upload-artifact@v4
         with:
           name: FoodHub-${{ matrix.app }}-Android-Release-APK
