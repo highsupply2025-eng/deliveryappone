@@ -280,7 +280,14 @@ function CourierWork({ userId }: { userId: string }) {
     }
     setBusy(true);
     try {
-      await orderActionFn({ data: { order_id: orderId, action } });
+      await orderActionFn({
+        data: {
+          order_id: orderId,
+          action,
+          latitude: coords?.latitude ?? null,
+          longitude: coords?.longitude ?? null,
+        },
+      });
       refresh();
       if (action === "accept") playOrderAlertChime();
       toast.success(
@@ -524,7 +531,7 @@ function CourierWork({ userId }: { userId: string }) {
                 </p>
                 <p className="text-xs text-muted-foreground">
                   {isOnline
-                    ? "تصلك الطلبات من أقرب مطعم أو محل لموقعك الحالي"
+                    ? "تصلك الطلبات الموجودة في حيز 10 كيلومتر من المطعم أو العميل"
                     : "بمجرد الضغط على أونلاين يبدأ شيفت 10 ساعات عمل تلقائياً"}
                 </p>
               </div>
@@ -650,7 +657,7 @@ function CourierWork({ userId }: { userId: string }) {
                 {/* Current Active Order Section */}
                 <section className="space-y-3">
                   <div className="flex items-center justify-between">
-                    <h2 className="font-bold tracking-normal">الطلب الحالي والأقرب للمطعم</h2>
+                    <h2 className="font-bold tracking-normal">الطلب الحالي (نطاق 10 كم من المطعم أو العميل)</h2>
                     {activeOrders.length > 0 && (
                       <Button
                         size="sm"
@@ -668,10 +675,10 @@ function CourierWork({ userId }: { userId: string }) {
                     <div className="rounded-2xl border bg-card py-10 text-center text-muted-foreground">
                       <PackageCheck className="mx-auto mb-3 size-10" />
                       <p className="font-medium">
-                        {onBreak ? "أنت في البريك حالياً" : "لا يوجد طلب نشط حالياً"}
+                        {onBreak ? "أنت في البريك حالياً" : "لا يوجد طلب نشط في نطاق 10 كم حالياً"}
                       </p>
                       <p className="mt-1 text-xs">
-                        سيصدر التطبيق تنبيهاً صوتياً فور وصول طلب جديد من أقرب مطعم لموقعك
+                        سيصدر التطبيق تنبيهاً صوتياً فور وصول طلب من عميل أو مطعم ضمن حيز 10 كيلومتر من موقعك
                       </p>
                     </div>
                   ) : (
@@ -692,15 +699,21 @@ function CourierWork({ userId }: { userId: string }) {
                                 </span>
                               ) : idx === 0 ? (
                                 <span className="rounded-full bg-emerald-500/15 px-2.5 py-0.5 text-xs font-bold text-emerald-700">
-                                  الأقرب للمطعم
+                                  ضمن نطاق 10 كم · الأقرب
                                 </span>
                               ) : null}
                             </div>
-                            <div className="flex items-center gap-2 text-xs">
-                              {o.distance_km != null && (
+                            <div className="flex flex-wrap items-center gap-1.5 text-xs">
+                              {o.restaurant_distance_km != null && (
+                                <span className="inline-flex items-center gap-1 rounded-md bg-secondary px-2 py-1 font-semibold">
+                                  <Store className="size-3.5 text-primary" />
+                                  {o.restaurant_distance_km} كم عن المطعم
+                                </span>
+                              )}
+                              {o.customer_distance_km != null && (
                                 <span className="inline-flex items-center gap-1 rounded-md bg-secondary px-2 py-1 font-semibold">
                                   <MapPin className="size-3.5 text-primary" />
-                                  {o.distance_km} كم عن المطعم
+                                  {o.customer_distance_km} كم عن العميل
                                 </span>
                               )}
                               <span className="rounded-md bg-secondary px-2 py-1 font-bold">

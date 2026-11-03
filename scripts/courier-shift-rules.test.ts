@@ -1,7 +1,58 @@
 import { describe, expect, test } from "bun:test";
-import { BREAK_SECONDS, WORK_SECONDS, workedSeconds, salaryDayEligible, shiftAssignmentSchema, canRequestBreak, canRejectOrder, courierAvailable } from "../src/lib/courier-shift-rules";
+import {
+  BREAK_SECONDS,
+  WORK_SECONDS,
+  MAX_COURIER_RADIUS_KM,
+  evaluateOrderCourierProximity,
+  workedSeconds,
+  salaryDayEligible,
+  shiftAssignmentSchema,
+  canRequestBreak,
+  canRejectOrder,
+  courierAvailable,
+} from "../src/lib/courier-shift-rules";
 
 describe("courier employment", () => {
+  test("order reaches courier within 10km of either restaurant or customer", () => {
+    expect(MAX_COURIER_RADIUS_KM).toBe(10);
+
+    // Courier within ~3km of restaurant, ~15km of customer -> withinRadius = true
+    const nearRestaurant = evaluateOrderCourierProximity({
+      courierLat: 24.7136,
+      courierLng: 46.6753,
+      pickupLat: 24.725,
+      pickupLng: 46.68,
+      deliveryLat: 24.85,
+      deliveryLng: 46.75,
+    });
+    expect(nearRestaurant.withinRadius).toBe(true);
+    expect(nearRestaurant.restaurantDistanceKm).toBeLessThanOrEqual(10);
+
+    // Courier ~18km from restaurant, but ~2km from customer -> withinRadius = true
+    const nearCustomer = evaluateOrderCourierProximity({
+      courierLat: 24.84,
+      courierLng: 46.74,
+      pickupLat: 24.7136,
+      pickupLng: 46.6753,
+      deliveryLat: 24.85,
+      deliveryLng: 46.75,
+    });
+    expect(nearCustomer.withinRadius).toBe(true);
+    expect(nearCustomer.customerDistanceKm).toBeLessThanOrEqual(10);
+
+    // Courier > 10km from BOTH restaurant and customer -> withinRadius = false
+    const tooFar = evaluateOrderCourierProximity({
+      courierLat: 24.5,
+      courierLng: 46.5,
+      pickupLat: 24.7136,
+      pickupLng: 46.6753,
+      deliveryLat: 24.85,
+      deliveryLng: 46.75,
+    });
+    expect(tooFar.withinRadius).toBe(false);
+    expect(tooFar.restaurantDistanceKm).toBeGreaterThan(10);
+    expect(tooFar.customerDistanceKm).toBeGreaterThan(10);
+  });
   test("one break request per shift including a denied request", () => {
     expect(canRequestBreak("active","none",false,100)).toBe(true);
     expect(canRequestBreak("active","rejected",true,100)).toBe(false);

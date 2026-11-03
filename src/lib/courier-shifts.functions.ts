@@ -6,19 +6,9 @@ import {
   WORK_SECONDS,
   workedSeconds,
   salaryDayEligible,
+  MAX_COURIER_RADIUS_KM,
+  evaluateOrderCourierProximity,
 } from "./courier-shift-rules";
-
-function haversineKm(lat1: number, lon1: number, lat2: number, lon2: number): number {
-  const toRad = (deg: number) => (deg * Math.PI) / 180;
-  const R = 6371;
-  const dLat = toRad(lat2 - lat1);
-  const dLon = toRad(lon2 - lon1);
-  const a =
-    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-    Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLon / 2) * Math.sin(dLon / 2);
-  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-  return Math.round(R * c * 10) / 10;
-}
 
 export const assignCourierShift = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
@@ -418,10 +408,15 @@ export const getCourierDashboardData = createServerFn({ method: "POST" })
         } | null;
         const pLat = o.pickup_latitude ?? rest?.latitude ?? null;
         const pLng = o.pickup_longitude ?? rest?.longitude ?? null;
-        const distance_km =
-          data.latitude != null && data.longitude != null && pLat != null && pLng != null
-            ? haversineKm(data.latitude, data.longitude, pLat, pLng)
-            : null;
+        const prox = evaluateOrderCourierProximity({
+          courierLat: data.latitude,
+          courierLng: data.longitude,
+          pickupLat: pLat,
+          pickupLng: pLng,
+          deliveryLat: o.delivery_latitude,
+          deliveryLng: o.delivery_longitude,
+          maxRadiusKm: MAX_COURIER_RADIUS_KM,
+        });
 
         return {
           id: o.id,
@@ -438,9 +433,13 @@ export const getCourierDashboardData = createServerFn({ method: "POST" })
           delivery_fee: o.delivery_fee,
           created_at: o.created_at,
           restaurant_name: rest?.name_ar ?? "المطعم",
-          distance_km,
+          distance_km: prox.distanceKm,
+          restaurant_distance_km: prox.restaurantDistanceKm,
+          customer_distance_km: prox.customerDistanceKm,
+          within_10km: prox.withinRadius,
         };
-      });
+      })
+      .filter((o) => o.courier_id === context.userId || o.within_10km);
 
     enrichedActive.sort((a, b) => {
       const aMine = a.courier_id === context.userId ? 0 : 1;
@@ -504,7 +503,7 @@ export const listCourierAvailableOrders = createServerFn({ method: "POST" })
     const { data: rows, error } = await supabaseAdmin
       .from("orders")
       .select(
-        "id,status,address,pickup_address,pickup_latitude,pickup_longitude,courier_id,courier_accepted_at,total,delivery_fee,created_at,restaurants(name_ar,address,latitude,longitude)",
+        "id,status,address,pickup_address,pickup_latitude,pickup_longitude,delivery_latitude,delivery_longitude,courier_id,courier_accepted_at,total,delivery_fee,created_at,restaurants(name_ar,address,latitude,longitude)",
       )
       .in("status", ["pending", "accepted", "preparing", "ready", "on_the_way"])
       .or(`courier_id.eq.${context.userId},courier_id.is.null`)
@@ -513,34 +512,44 @@ export const listCourierAvailableOrders = createServerFn({ method: "POST" })
 
     if (error) throw new Error(error.message);
 
-    const enriched = (rows ?? []).map((o) => {
-      const rest = o.restaurants as {
-        name_ar?: string;
-        address?: string | null;
-        latitude?: number | null;
-        longitude?: number | null;
-      } | null;
-      const pLat = o.pickup_latitude ?? rest?.latitude ?? null;
-      const pLng = o.pickup_longitude ?? rest?.longitude ?? null;
-      const distance_km =
-        data.latitude != null && data.longitude != null && pLat != null && pLng != null
-          ? haversineKm(data.latitude, data.longitude, pLat, pLng)
-          : null;
+    const enriched = (rows ?? [])
+      .map((o) => {
+        const rest = o.restaurants as {
+          name_ar?: string;
+          address?: string | null;
+          latitude?: number | null;
+          longitude?: number | null;
+        } | null;
+        const pLat = o.pickup_latitude ?? rest?.latitude ?? null;
+        const pLng = o.pickup_longitude ?? rest?.longitude ?? null;
+        const prox = evaluateOrderCourierProximity({
+          courierLat: data.latitude,
+          courierLng: data.longitude,
+          pickupLat: pLat,
+          pickupLng: pLng,
+          deliveryLat: o.delivery_latitude,
+          deliveryLng: o.delivery_longitude,
+          maxRadiusKm: MAX_COURIER_RADIUS_KM,
+        });
 
-      return {
-        id: o.id,
-        status: o.status,
-        address: o.address,
-        pickup_address: o.pickup_address ?? rest?.address ?? null,
-        courier_id: o.courier_id,
-        courier_accepted_at: o.courier_accepted_at,
-        total: o.total,
-        delivery_fee: o.delivery_fee,
-        created_at: o.created_at,
-        restaurant_name: rest?.name_ar ?? "المطعم",
-        distance_km,
-      };
-    });
+        return {
+          id: o.id,
+          status: o.status,
+          address: o.address,
+          pickup_address: o.pickup_address ?? rest?.address ?? null,
+          courier_id: o.courier_id,
+          courier_accepted_at: o.courier_accepted_at,
+          total: o.total,
+          delivery_fee: o.delivery_fee,
+          created_at: o.created_at,
+          restaurant_name: rest?.name_ar ?? "المطعم",
+          distance_km: prox.distanceKm,
+          restaurant_distance_km: prox.restaurantDistanceKm,
+          customer_distance_km: prox.customerDistanceKm,
+          within_10km: prox.withinRadius,
+        };
+      })
+      .filter((o) => o.courier_id === context.userId || o.within_10km);
 
     enriched.sort((a, b) => {
       const aMine = a.courier_id === context.userId ? 0 : 1;
@@ -562,6 +571,8 @@ export const courierOrderAction = createServerFn({ method: "POST" })
       .object({
         order_id: z.string().uuid(),
         action: z.enum(["accept", "pickup", "reject"]),
+        latitude: z.number().min(-90).max(90).nullable().optional(),
+        longitude: z.number().min(-180).max(180).nullable().optional(),
       })
       .parse(d),
   )
@@ -576,7 +587,7 @@ export const courierOrderAction = createServerFn({ method: "POST" })
     const { data: order, error: fetchError } = await supabaseAdmin
       .from("orders")
       .select(
-        "id,status,courier_id,pickup_address,pickup_latitude,pickup_longitude,restaurants(address,latitude,longitude)",
+        "id,status,courier_id,pickup_address,pickup_latitude,pickup_longitude,delivery_latitude,delivery_longitude,restaurants(address,latitude,longitude)",
       )
       .eq("id", data.order_id)
       .maybeSingle();
@@ -601,6 +612,22 @@ export const courierOrderAction = createServerFn({ method: "POST" })
         latitude?: number | null;
         longitude?: number | null;
       } | null;
+      const pLat = order.pickup_latitude ?? rest?.latitude ?? null;
+      const pLng = order.pickup_longitude ?? rest?.longitude ?? null;
+      const prox = evaluateOrderCourierProximity({
+        courierLat: data.latitude,
+        courierLng: data.longitude,
+        pickupLat: pLat,
+        pickupLng: pLng,
+        deliveryLat: order.delivery_latitude,
+        deliveryLng: order.delivery_longitude,
+        maxRadiusKm: MAX_COURIER_RADIUS_KM,
+      });
+      if (!prox.withinRadius) {
+        throw new Error(
+          `أنت خارج النطاق المسموح (${MAX_COURIER_RADIUS_KM} كم من المطعم أو العميل)`,
+        );
+      }
       const nextStatus =
         order.status === "pending" || order.status === "accepted" ? "preparing" : order.status;
       const { error: updateError } = await supabaseAdmin
@@ -610,8 +637,8 @@ export const courierOrderAction = createServerFn({ method: "POST" })
           courier_accepted_at: new Date().toISOString(),
           status: nextStatus,
           pickup_address: order.pickup_address ?? rest?.address ?? null,
-          pickup_latitude: order.pickup_latitude ?? rest?.latitude ?? null,
-          pickup_longitude: order.pickup_longitude ?? rest?.longitude ?? null,
+          pickup_latitude: pLat,
+          pickup_longitude: pLng,
         })
         .eq("id", data.order_id);
       if (updateError) throw new Error(updateError.message);
