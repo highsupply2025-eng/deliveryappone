@@ -1,5 +1,6 @@
 import { createFileRoute, useLocation } from "@tanstack/react-router";
-import { lazy, Suspense, useEffect } from "react";
+import { Suspense, useEffect } from "react";
+import { lazyWithReload as lazy } from "@/lib/lazy-reload";
 const CustomerMobileApp = lazy(() => import("@/components/apps/customer-mobile-app").then(m=>({default:m.CustomerMobileApp})));
 const SimpleCourierApp = lazy(() => import("@/components/apps/simple-courier-app").then(m=>({default:m.SimpleCourierApp})));
 const KitchenMobileApp = lazy(() => import("@/components/apps/kitchen-work").then(m=>({default:m.KitchenWork})));
