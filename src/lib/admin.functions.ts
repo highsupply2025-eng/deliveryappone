@@ -7,7 +7,24 @@ const accountSchema = z.object({
   password: z.string().min(8).max(72),
   full_name: z.string().trim().min(2).max(100),
   phone: z.string().trim().max(30).optional().default(""),
+  vehicle: z.enum(["car", "motorcycle"]).optional().default("car"),
   role: z.enum(["admin", "restaurant", "courier", "customer"]),
+});
+
+const updateAccountSchema = z.object({
+  id: z.string().uuid(),
+  email: z.string().trim().email().max(255),
+  full_name: z.string().trim().min(2).max(100),
+  phone: z.string().trim().max(30).optional().default(""),
+  vehicle: z.enum(["car", "motorcycle"]).optional(),
+  password: z.string().min(8).max(72).optional().or(z.literal("")),
+});
+
+const approvalSchema = z.object({
+  user_id: z.string().uuid(),
+  application_id: z.string().uuid().optional().nullable(),
+  approve: z.boolean(),
+  reason: z.string().trim().max(500).optional().default(""),
 });
 
 type AuthedContext = {
@@ -35,13 +52,144 @@ export const createAccount = createServerFn({ method: "POST" })
       email: data.email,
       password: data.password,
       email_confirm: true,
-      user_metadata: { full_name: data.full_name, phone: data.phone, role: data.role },
+      user_metadata: {
+        full_name: data.full_name,
+        phone: data.phone,
+        vehicle: data.vehicle,
+        role: data.role,
+        status: "approved",
+      },
     });
     if (error) throw new Error(error.message);
     if (!created.user) throw new Error("User creation failed");
-    const { error: roleError } = await supabaseAdmin.from("user_roles").upsert({ user_id: created.user.id, role: data.role }, { onConflict: "user_id,role" });
+    const { error: roleError } = await supabaseAdmin
+      .from("user_roles")
+      .upsert({ user_id: created.user.id, role: data.role }, { onConflict: "user_id,role" });
     if (roleError) throw new Error(roleError.message);
+    await supabaseAdmin
+      .from("profiles")
+      .upsert({ id: created.user.id, full_name: data.full_name, phone: data.phone || null });
     return { id: created.user.id, email: data.email, role: data.role };
+  });
+
+export const updateAccount = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) => updateAccountSchema.parse(d))
+  .handler(async ({ data, context }) => {
+    await assertAdmin(context as unknown as AuthedContext);
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { data: existing } = await supabaseAdmin.auth.admin.getUserById(data.id);
+    const prevMeta = (existing?.user?.user_metadata ?? {}) as Record<string, unknown>;
+
+    const { error } = await supabaseAdmin.auth.admin.updateUserById(data.id, {
+      email: data.email,
+      ...(data.password && data.password.length >= 8 ? { password: data.password } : {}),
+      user_metadata: {
+        ...prevMeta,
+        full_name: data.full_name,
+        phone: data.phone,
+        ...(data.vehicle ? { vehicle: data.vehicle } : {}),
+      },
+    });
+    if (error) throw new Error(error.message);
+
+    await supabaseAdmin
+      .from("profiles")
+      .upsert({ id: data.id, full_name: data.full_name, phone: data.phone || null });
+
+    await supabaseAdmin
+      .from("staff_applications")
+      .update({
+        full_name: data.full_name,
+        ...(data.vehicle ? { vehicle: data.vehicle } : {}),
+      })
+      .eq("user_id", data.id);
+
+    return { ok: true };
+  });
+
+export const deleteAccount = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) => z.object({ id: z.string().uuid() }).parse(d))
+  .handler(async ({ data, context }) => {
+    await assertAdmin(context as unknown as AuthedContext);
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    await supabaseAdmin.from("order_live_locations").delete().eq("courier_id", data.id);
+    await supabaseAdmin
+      .from("orders")
+      .update({ courier_id: null, courier_accepted_at: null })
+      .eq("courier_id", data.id)
+      .in("status", ["pending", "accepted", "preparing", "ready"]);
+    await supabaseAdmin.from("courier_shifts").delete().eq("courier_id", data.id);
+    await supabaseAdmin.from("staff_applications").delete().eq("user_id", data.id);
+    await supabaseAdmin.from("user_roles").delete().eq("user_id", data.id);
+    await supabaseAdmin.from("profiles").delete().eq("id", data.id);
+    const { error } = await supabaseAdmin.auth.admin.deleteUser(data.id);
+    if (error) throw new Error(error.message);
+    return { ok: true };
+  });
+
+export const setCourierApprovalStatus = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) => approvalSchema.parse(d))
+  .handler(async ({ data, context }) => {
+    await assertAdmin(context as unknown as AuthedContext);
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { data: existing } = await supabaseAdmin.auth.admin.getUserById(data.user_id);
+    const prevMeta = (existing?.user?.user_metadata ?? {}) as Record<string, unknown>;
+
+    if (data.approve) {
+      const { error: roleErr } = await supabaseAdmin
+        .from("user_roles")
+        .upsert({ user_id: data.user_id, role: "courier" }, { onConflict: "user_id,role" });
+      if (roleErr) throw new Error(roleErr.message);
+
+      await supabaseAdmin
+        .from("staff_applications")
+        .update({
+          status: "approved",
+          rejection_reason: null,
+          reviewed_at: new Date().toISOString(),
+        })
+        .eq("user_id", data.user_id);
+
+      await supabaseAdmin.auth.admin.updateUserById(data.user_id, {
+        user_metadata: {
+          ...prevMeta,
+          role: "courier",
+          status: "approved",
+          rejection_reason: null,
+          identity_violation_locked: false,
+          identity_violation_pending: false,
+          identity_violation_reason: null,
+        },
+      });
+    } else {
+      await supabaseAdmin
+        .from("user_roles")
+        .delete()
+        .eq("user_id", data.user_id)
+        .eq("role", "courier");
+
+      await supabaseAdmin
+        .from("staff_applications")
+        .update({
+          status: "rejected",
+          rejection_reason: data.reason || "تم رفض/إيقاف الحساب من الإدارة",
+          reviewed_at: new Date().toISOString(),
+        })
+        .eq("user_id", data.user_id);
+
+      await supabaseAdmin.auth.admin.updateUserById(data.user_id, {
+        user_metadata: {
+          ...prevMeta,
+          status: "rejected",
+          rejection_reason: data.reason || "تم رفض/إيقاف الحساب من الإدارة",
+        },
+      });
+    }
+
+    return { ok: true };
   });
 
 export const approveJoinRequest = createServerFn({ method: "POST" })
@@ -101,21 +249,116 @@ export const approveJoinRequest = createServerFn({ method: "POST" })
   });
 
 export const listAccounts = createServerFn({ method: "GET" })
-
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
     await assertAdmin(context as unknown as AuthedContext);
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-    const { data: users } = await supabaseAdmin.auth.admin.listUsers({ page: 1, perPage: 200 });
-    const { data: roles } = await supabaseAdmin.from("user_roles").select("user_id, role");
+    const [usersRes, rolesRes, appsRes, profilesRes, deliveredRes] = await Promise.all([
+      supabaseAdmin.auth.admin.listUsers({ page: 1, perPage: 200 }),
+      supabaseAdmin.from("user_roles").select("user_id, role"),
+      supabaseAdmin.from("staff_applications").select("*").order("created_at", { ascending: false }),
+      supabaseAdmin.from("profiles").select("id, full_name, phone"),
+      supabaseAdmin.from("orders").select("courier_id").eq("status", "delivered").not("courier_id", "is", null),
+    ]);
+
     const roleMap = new Map<string, string>();
-    for (const r of roles ?? []) roleMap.set(r.user_id, r.role);
-    return (users?.users ?? []).map((u) => ({
-      id: u.id,
-      email: u.email ?? "",
-      full_name: (u.user_metadata?.["full_name"] as string) ?? "",
-      phone: (u.user_metadata?.["phone"] as string) ?? "",
-      role: roleMap.get(u.id) ?? "customer",
-      created_at: u.created_at,
-    }));
+    for (const r of rolesRes.data ?? []) {
+      const prev = roleMap.get(r.user_id);
+      if (!prev || r.role === "admin" || r.role === "restaurant" || r.role === "courier") {
+        roleMap.set(r.user_id, r.role);
+      }
+    }
+
+    const deliveredCountMap = new Map<string, number>();
+    for (const o of deliveredRes.data ?? []) {
+      if (o.courier_id) {
+        deliveredCountMap.set(o.courier_id, (deliveredCountMap.get(o.courier_id) ?? 0) + 1);
+      }
+    }
+
+    const appMap = new Map<
+      string,
+      {
+        id: string;
+        type: string;
+        status: string;
+        full_name: string;
+        business_name: string | null;
+        vehicle: string | null;
+        documents: Record<string, string>;
+        rejection_reason: string | null;
+      }
+    >();
+    for (const a of appsRes.data ?? []) {
+      if (!appMap.has(a.user_id)) {
+        appMap.set(a.user_id, {
+          id: a.id,
+          type: a.type,
+          status: a.status,
+          full_name: a.full_name,
+          business_name: a.business_name,
+          vehicle: a.vehicle,
+          documents: (a.documents ?? {}) as Record<string, string>,
+          rejection_reason: a.rejection_reason,
+        });
+      }
+    }
+
+    const profileMap = new Map<string, { full_name: string; phone: string | null }>();
+    for (const p of profilesRes.data ?? []) {
+      profileMap.set(p.id, { full_name: p.full_name, phone: p.phone });
+    }
+
+    return (usersRes.data?.users ?? []).map((u) => {
+      const meta = (u.user_metadata ?? {}) as Record<string, unknown>;
+      const app = appMap.get(u.id);
+      const prof = profileMap.get(u.id);
+      const storedRole = roleMap.get(u.id);
+      const metaRole = typeof meta["role"] === "string" ? meta["role"] : undefined;
+      const effectiveRole =
+        storedRole && storedRole !== "customer"
+          ? storedRole
+          : app?.type === "courier" || app?.type === "restaurant"
+            ? app.type
+            : metaRole || storedRole || "customer";
+
+      const isCourierRoleActive = storedRole === "courier";
+      const violationLocked = Boolean(meta["identity_violation_locked"]);
+      const violationPending = Boolean(meta["identity_violation_pending"]);
+      const status =
+        violationLocked
+          ? "rejected"
+          : app?.status === "pending"
+            ? "pending"
+            : app?.status === "rejected" || meta["status"] === "rejected"
+              ? "rejected"
+              : isCourierRoleActive || storedRole === "restaurant" || storedRole === "admin"
+                ? "approved"
+                : (meta["status"] as string) || "approved";
+
+      return {
+        id: u.id,
+        email: u.email ?? "",
+        full_name:
+          (meta["full_name"] as string) ||
+          app?.full_name ||
+          prof?.full_name ||
+          "",
+        phone: (meta["phone"] as string) || prof?.phone || "",
+        role: effectiveRole,
+        status: status as "approved" | "pending" | "rejected",
+        vehicle: (app?.vehicle || (meta["vehicle"] as string) || null) as "car" | "motorcycle" | null,
+        business_name: app?.business_name ?? null,
+        application_id: app?.id ?? null,
+        documents: app?.documents ?? {},
+        rejection_reason: app?.rejection_reason || (meta["rejection_reason"] as string) || null,
+        identity_violation_locked: violationLocked,
+        identity_violation_pending: violationPending,
+        identity_violation_reason: (meta["identity_violation_reason"] as string) || null,
+        identity_violation_photo: (meta["identity_violation_photo"] as string) || null,
+        identity_violation_at: (meta["identity_violation_at"] as string) || null,
+        completed_orders_count: deliveredCountMap.get(u.id) ?? 0,
+        created_at: u.created_at,
+      };
+    });
   });

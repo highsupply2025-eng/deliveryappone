@@ -1,128 +1,1321 @@
-import { useEffect, useState } from "react";
+import { lazy, Suspense, useEffect, useRef, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
-import { Bike, Clock, Coffee, LogOut, MapPin, Navigation, RefreshCw, PackageCheck } from "lucide-react";
+import {
+  Bike,
+  Clock,
+  Coffee,
+  LogOut,
+  MapPin,
+  Navigation,
+  RefreshCw,
+  PackageCheck,
+  BellRing,
+  Volume2,
+  VolumeX,
+  User,
+  Headphones,
+  History,
+  Map as MapIcon,
+  Camera,
+  ShieldAlert,
+  CheckCircle2,
+  AlertTriangle,
+  Store,
+  Send,
+  PhoneCall,
+} from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { useSession } from "@/lib/session";
-import { courierShiftAction, courierDeliverOrder, courierSetOnline } from "@/lib/courier-shifts.functions";
-import { WORK_SECONDS, workedSeconds, canRequestBreak, canRejectOrder, courierAvailable } from "@/lib/courier-shift-rules";
+import {
+  courierDeliverOrder,
+  courierSetOnline,
+  courierBreakAction,
+  courierOrderAction,
+  getCourierDashboardData,
+  submitCourierLiveVerification,
+} from "@/lib/courier-shifts.functions";
+import {
+  WORK_SECONDS,
+  workedSeconds,
+  canRejectOrder,
+  courierAvailable,
+  salaryDayEligible,
+} from "@/lib/courier-shift-rules";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { PhoneLogin } from "./phone-login";
 import { StaffOnboarding } from "./staff-onboarding";
 import { useRealtime } from "@/lib/realtime";
 import { useCourierLocation } from "@/lib/live-location";
 import { LiveOrderMap } from "./live-order-map";
+import { orderMapPoints } from "@/lib/order-map-points";
 
-const duration = (seconds: number) => `${Math.floor(seconds/3600).toString().padStart(2,"0")}:${Math.floor(seconds%3600/60).toString().padStart(2,"0")}:${Math.floor(seconds%60).toString().padStart(2,"0")}`;
+const OrderMapCanvas = lazy(() =>
+  import("./order-map-canvas").then((m) => ({ default: m.OrderMapCanvas })),
+);
+
+type RiderTab = "current" | "map" | "history" | "support" | "profile";
+
+const duration = (seconds: number) =>
+  `${Math.floor(seconds / 3600)
+    .toString()
+    .padStart(2, "0")}:${Math.floor((seconds % 3600) / 60)
+    .toString()
+    .padStart(2, "0")}:${Math.floor(seconds % 60)
+    .toString()
+    .padStart(2, "0")}`;
+
+function playOrderAlertChime() {
+  try {
+    const AudioCtx =
+      window.AudioContext ||
+      (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
+    const ctx = new AudioCtx();
+    const notes = [880, 1174.66, 880, 1318.51];
+    notes.forEach((freq, i) => {
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.type = "triangle";
+      osc.frequency.setValueAtTime(freq, ctx.currentTime + i * 0.16);
+      gain.gain.setValueAtTime(0.28, ctx.currentTime + i * 0.16);
+      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + i * 0.16 + 0.15);
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.start(ctx.currentTime + i * 0.16);
+      osc.stop(ctx.currentTime + i * 0.16 + 0.15);
+    });
+  } catch {
+    /* ignore audio restriction */
+  }
+}
 
 export function SimpleCourierApp() {
-  const {user,role,loading} = useSession();
-  if(loading) return <div dir="rtl" className="foodhub-staff flex min-h-screen flex-col items-center justify-center bg-background p-6 text-foreground"><p className="text-muted-foreground">جارِ التحميل…</p></div>;
-  if(!user) return <div dir="rtl" className="foodhub-staff flex min-h-screen flex-col items-center justify-center bg-background p-6 text-foreground">
-    <div className="w-full max-w-sm rounded-2xl border bg-card p-6 shadow-sm">
-      <div className="mb-6 flex flex-col items-center gap-2 text-center">
-        <div className="flex size-14 items-center justify-center rounded-2xl bg-primary text-primary-foreground">
-          <Bike className="size-7" />
-        </div>
-        <h1 className="text-xl font-bold">FoodHub Rider</h1>
-        <p className="text-sm text-muted-foreground">تسجيل دخول المندوب</p>
+  const { user, role, loading } = useSession();
+  if (loading)
+    return (
+      <div
+        dir="rtl"
+        className="foodhub-staff flex min-h-screen flex-col items-center justify-center bg-background p-6 text-foreground"
+      >
+        <p className="text-muted-foreground">جارِ التحميل…</p>
       </div>
-      <PhoneLogin />
-    </div>
-  </div>;
-  if(role!=="courier") return <StaffOnboarding userId={user.id} type="courier" />;
+    );
+  if (!user)
+    return (
+      <div
+        dir="rtl"
+        className="foodhub-staff flex min-h-screen flex-col items-center justify-center bg-background p-6 text-foreground"
+      >
+        <div className="w-full max-w-sm rounded-2xl border bg-card p-6 shadow-sm">
+          <div className="mb-6 flex flex-col items-center gap-2 text-center">
+            <div className="flex size-14 items-center justify-center rounded-2xl bg-primary text-primary-foreground">
+              <Bike className="size-7" />
+            </div>
+            <h1 className="text-xl font-bold">FoodHub Rider</h1>
+            <p className="text-sm text-muted-foreground">تسجيل دخول المندوب</p>
+          </div>
+          <PhoneLogin />
+        </div>
+      </div>
+    );
+  if (role !== "courier") return <StaffOnboarding userId={user.id} type="courier" />;
   return <CourierWork userId={user.id} />;
 }
 
-function CourierWork({userId}:{userId:string}) {
-  useRealtime(["orders","courier_shifts"],["courier-work-shifts","courier-work-orders"],"courier-work");
+function CourierWork({ userId }: { userId: string }) {
+  useRealtime(["orders", "courier_shifts"], ["courier-dashboard"], "courier-work");
   const qc = useQueryClient();
-  const actionFn = useServerFn(courierShiftAction);
-  const [now,setNow] = useState(Date.now());
-  const [busy,setBusy] = useState(false);
-  const [code,setCode] = useState("");
-  const deliverFn = useServerFn(courierDeliverOrder);
+  const [tab, setTab] = useState<RiderTab>("current");
+  const [now, setNow] = useState(Date.now());
+  const [busy, setBusy] = useState(false);
+  const [code, setCode] = useState("");
+  const [alertEnabled, setAlertEnabled] = useState(true);
+  const [coords, setCoords] = useState<{ latitude: number; longitude: number } | null>(null);
+  const [showLiveSelfieModal, setShowLiveSelfieModal] = useState(false);
+  const [autoPromptedToday, setAutoPromptedToday] = useState(false);
+  const [supportTopic, setSupportTopic] = useState("تأخر استلام الطلب من المطعم");
+  const [supportMessage, setSupportMessage] = useState("");
+
+  const dashboardFn = useServerFn(getCourierDashboardData);
   const onlineFn = useServerFn(courierSetOnline);
-  const toggleOnline=async(online:boolean)=>{
+  const breakFn = useServerFn(courierBreakAction);
+  const orderActionFn = useServerFn(courierOrderAction);
+  const deliverFn = useServerFn(courierDeliverOrder);
+  const verifyFn = useServerFn(submitCourierLiveVerification);
+
+  useEffect(() => {
+    const timer = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(timer);
+  }, []);
+
+  useEffect(() => {
+    if (typeof navigator === "undefined" || !navigator.geolocation) return;
+    const watchId = navigator.geolocation.watchPosition(
+      (pos) => {
+        setCoords({
+          latitude: pos.coords.latitude,
+          longitude: pos.coords.longitude,
+        });
+      },
+      () => {
+        /* fallback */
+      },
+      { enableHighAccuracy: true, maximumAge: 5000, timeout: 15000 },
+    );
+    return () => navigator.geolocation.clearWatch(watchId);
+  }, []);
+
+  const dashboard = useQuery({
+    queryKey: ["courier-dashboard", userId, coords?.latitude ?? null, coords?.longitude ?? null],
+    queryFn: async () => {
+      return await dashboardFn({
+        data: {
+          latitude: coords?.latitude ?? null,
+          longitude: coords?.longitude ?? null,
+        },
+      });
+    },
+    refetchInterval: 10000,
+  });
+
+  const refresh = () =>
+    void qc.invalidateQueries({
+      predicate: (q) => String(q.queryKey[0]).startsWith("courier-dashboard"),
+    });
+
+  const profile = dashboard.data?.profile;
+  const shift = dashboard.data?.activeShift ?? null;
+  const isOnline = !!shift && shift.status === "active";
+  const activeOrders = dashboard.data?.activeOrders ?? [];
+  const pastOrders = dashboard.data?.pastOrders ?? [];
+  const completedCount = dashboard.data?.completedCount ?? 0;
+  const shiftHistory = dashboard.data?.shiftHistory ?? [];
+
+  const todayStr = new Date().toISOString().slice(0, 10);
+  const isVerifiedToday = profile?.identity_verified_date === todayStr;
+
+  // Automatically trigger the daily live selfie check when the courier enters an active shift
+  useEffect(() => {
+    if (
+      isOnline &&
+      profile &&
+      !profile.identity_violation_locked &&
+      !profile.identity_violation_pending &&
+      !isVerifiedToday &&
+      !autoPromptedToday
+    ) {
+      setAutoPromptedToday(true);
+      setShowLiveSelfieModal(true);
+    }
+  }, [isOnline, profile, isVerifiedToday, autoPromptedToday]);
+
+  // Sound alert when an active order is present
+  const myActiveOrder = activeOrders.find((o) => o.courier_id === userId) ?? activeOrders[0];
+  useEffect(() => {
+    if (!isOnline || !alertEnabled || !activeOrders.length) return;
+    playOrderAlertChime();
+  }, [isOnline, alertEnabled, activeOrders.length]);
+
+  const work = shift?.started_at
+    ? workedSeconds(
+        Date.parse(shift.started_at),
+        now,
+        shift.break_started_at ? Date.parse(shift.break_started_at) : undefined,
+        shift.break_ends_at ? Date.parse(shift.break_ends_at) : undefined,
+      )
+    : 0;
+  const onBreak = !!shift?.break_ends_at && now < Date.parse(shift.break_ends_at);
+  const available = !!shift && courierAvailable(shift.status, work, onBreak);
+  const gpsError = useCourierLocation(myActiveOrder?.id, isOnline && !onBreak && !!myActiveOrder);
+
+  const toggleOnline = async (online: boolean) => {
+    if (!online && work < WORK_SECONDS) {
+      const ok = window.confirm(
+        "تنبيه هام: لم تكمل 10 ساعات عمل فعلية بعد! إغلاق الشيفت الآن لن يحتسب لك الأجر اليومي لهذا اليوم. هل تريد الإغلاق؟",
+      );
+      if (!ok) return;
+    }
     setBusy(true);
-    try {await onlineFn({data:{online}}); refresh(); toast.success(online?"أنت الآن أونلاين وتستقبل الطلبات":"أنت الآن أوفلاين");}
-    catch(e){toast.error(e instanceof Error?e.message:"تعذر التغيير");} finally{setBusy(false);}
+    try {
+      await onlineFn({ data: { online } });
+      refresh();
+      toast.success(
+        online
+          ? "تم بدء الشيفت التلقائي (10 ساعات عمل فعلية) وتفعيل رادار الأقرب للمطعم"
+          : "تم إنهاء الشيفت وتحويل حالتك إلى أوفلاين",
+      );
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "تعذر تغيير الحالة");
+    } finally {
+      setBusy(false);
+    }
   };
-  const shifts = useQuery({queryKey:["courier-work-shifts",userId],queryFn:async()=>{
-    const {data,error} = await supabase.from("courier_shifts").select("*").eq("courier_id",userId).order("scheduled_start",{ascending:false}).limit(30);
-    if(error) throw error; return data;
-  },refetchInterval:15000});
-  const shift = shifts.data?.find(s=>s.status==="active");
-  const isOnline = !!shift;
-  const orders = useQuery({queryKey:["courier-work-orders",userId],queryFn:async()=>{
-    const {data,error} = await supabase.from("orders").select("id,status,address,pickup_address,courier_accepted_at,restaurants(name_ar)").eq("courier_id",userId).in("status",["pending","accepted","preparing","ready","on_the_way"]).order("created_at");
-    if(error) throw error; return data;
-  },refetchInterval:10000});
-  const refresh = () => void qc.invalidateQueries({predicate:q=>String(q.queryKey[0]).startsWith("courier-work")});
-  useEffect(()=>{const timer=setInterval(()=>setNow(Date.now()),1000);return ()=>clearInterval(timer);},[]);
-  useEffect(()=>{
-    if(!shift || shift.status!=="active") return;
-    let cancelled=false;
-    const sync=async()=>{try {await actionFn({data:{shift_id:shift.id,action:"sync"}}); if(!cancelled) refresh();} catch {/* query error is surfaced below */}};
-    void sync(); const timer=setInterval(()=>void sync(),15000);
-    return ()=>{cancelled=true;clearInterval(timer);};
-  },[shift?.id,shift?.status,actionFn]);
-  const act=async(action:"start"|"request_break"|"reject"|"accept"|"pickup",orderId?:string)=>{
-    if(!shift) return;
-    if(action==="reject" && !window.confirm("رفض هذا الطلب سيستخدم الرفض الوحيد المتاح خلال الشيفت. هل تؤكد؟")) return;
+
+  const handleBreak = async (action: "start_break" | "end_break", minutes = 15) => {
+    if (!shift) return;
     setBusy(true);
-    try {await actionFn({data:{shift_id:shift.id,action,order_id:orderId}}); refresh();toast.success(action==="request_break"?"أُرسل طلب البريك للإدارة":"تم الحفظ");}
-    catch(e){toast.error(e instanceof Error?e.message:"تعذر الحفظ");} finally{setBusy(false);}
+    try {
+      await breakFn({ data: { shift_id: shift.id, action, minutes } });
+      refresh();
+      toast.success(
+        action === "start_break"
+          ? `بدأ البريك (${minutes} دقيقة) — تذكّر أنه يلزم إكمال 10 ساعات عمل صافية`
+          : "انتهى البريك وعدت لاستقبال الطلبات",
+      );
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "تعذر تنفيذ البريك");
+    } finally {
+      setBusy(false);
+    }
   };
-  const deliver=async(orderId:string)=>{
+
+  const handleOrderAction = async (action: "accept" | "pickup" | "reject", orderId: string) => {
+    if (
+      action === "reject" &&
+      !window.confirm("لديك الحق في رفض طلب واحد فقط خلال الشيفت. هل تؤكد استخدام حق الرفض الوحيد؟")
+    ) {
+      return;
+    }
     setBusy(true);
-    try {const r=await deliverFn({data:{order_id:orderId,code}}); if(r.ok){setCode("");toast.success("تم تسليم الطلب");refresh();} else toast.error(`الكود غير صحيح — المتبقي ${r.remaining??0} محاولات`);}
-    catch(e){toast.error(e instanceof Error?e.message:"تعذر التسليم");} finally{setBusy(false);}
+    try {
+      await orderActionFn({ data: { order_id: orderId, action } });
+      refresh();
+      if (action === "accept") playOrderAlertChime();
+      toast.success(
+        action === "accept"
+          ? "تم قبول الطلب وتوجيهه للمطعم"
+          : action === "pickup"
+            ? "تم استلام الطلب من المطعم"
+            : "تم رفض الطلب وتحويله للمندوب الأقرب التالي",
+      );
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "تعذر تحديث الطلب");
+    } finally {
+      setBusy(false);
+    }
   };
-  const work=shift?.started_at?workedSeconds(Date.parse(shift.started_at),now,shift.break_started_at?Date.parse(shift.break_started_at):undefined,shift.break_ends_at?Date.parse(shift.break_ends_at):undefined):0;
-  const onBreak=!!shift?.break_ends_at && now<Date.parse(shift.break_ends_at);
-  const available=!!shift && courierAvailable(shift.status,work,onBreak);
-  const gpsError=useCourierLocation(orders.data?.[0]?.id,!!shift&&shift.status==="active"&&!onBreak);
-  return <div dir="rtl" className="min-h-screen bg-background pb-8 text-foreground">
-    <header className="flex items-center justify-between border-b bg-card px-4 py-4 pt-[max(1rem,env(safe-area-inset-top))]">
-      <div className="flex items-center gap-2"><img src="/app-logo.png" alt="" className="size-9 object-contain"/><h1 className="text-lg font-bold tracking-normal">FoodHub المندوب</h1></div>
-      <div className="flex gap-1"><Button size="icon" variant="ghost" aria-label="تحديث" onClick={refresh}><RefreshCw className="size-4"/></Button><Button size="icon" variant="ghost" aria-label="خروج" onClick={()=>void supabase.auth.signOut()}><LogOut className="size-4"/></Button></div>
-    </header>
-    <main className="mx-auto max-w-lg space-y-6 p-4">
-      {gpsError&&<p role="alert" className="text-sm text-destructive">{gpsError}</p>}
-      {(shifts.isError||orders.isError)&&<p role="alert" className="text-destructive">تعذر تحميل البيانات. حاول التحديث.</p>}
-      <section className="flex items-center justify-between rounded-2xl border bg-card p-4"><div><p className="font-bold tracking-normal">{isOnline?"أونلاين":"أوفلاين"}</p><p className="text-sm text-muted-foreground">{isOnline?"تستقبل الطلبات الآن":"اضغط أونلاين لاستقبال الطلبات"}</p></div><Button size="lg" variant={isOnline?"outline":"default"} disabled={busy} onClick={()=>void toggleOnline(!isOnline)}><Bike className="size-4"/>{isOnline?"أوفلاين":"أونلاين"}</Button></section>
-      {!shift?<section className="py-12 text-center"><Clock className="mx-auto mb-3 size-10 text-muted-foreground"/><h2 className="font-bold tracking-normal">أوفلاين</h2><p className="mt-3 text-muted-foreground">لن تصلك طلبات حتى تضغط أونلاين</p></section>:<>
-        <section className="space-y-3 border-b pb-5">
-          <div className="flex items-center justify-between"><h2 className="font-bold tracking-normal">الشيفت</h2><span className="text-sm text-muted-foreground">{available?"متاح":onBreak?"غير متاح — بريك":"غير متاح"}</span></div>
-          <p className="text-sm">{new Date(shift.scheduled_start).toLocaleString("ar-SA",{timeZone:"Asia/Riyadh",dateStyle:"medium",timeStyle:"short"})}</p>
-          <p className="flex gap-2 text-sm text-muted-foreground"><MapPin className="size-4 shrink-0"/>{shift.neighborhoods.join(" · ")}</p>
-          <div className="py-3 text-center"><p className="text-sm text-muted-foreground">ساعات العمل الفعلية</p><p dir="ltr" className="mt-2 text-4xl font-bold tabular-nums">{duration(work)}</p><p className="mt-2 text-sm">المتبقي: {duration(WORK_SECONDS-work)}</p></div>
-          {onBreak&&<p className="text-center text-sm text-muted-foreground">ينتهي البريك خلال {duration(Math.max(0,(Date.parse(shift.break_ends_at??"")-now)/1000))}</p>}
-          {shift.break_status==="requested"&&<p className="text-sm text-muted-foreground">طلب البريك بانتظار موافقة الإدارة</p>}
-          {shift.break_status==="rejected"&&<p className="text-sm text-destructive">لم توافق الإدارة على طلب البريك</p>}
-          {work>=WORK_SECONDS&&<p className="text-sm text-muted-foreground">{orders.data?.some(o=>o.status==="on_the_way")?"انتهت ساعات الشيفت؛ سلّم الطلب الحالي ثم يمكنك العودة إلى المنزل":"اكتمل الشيفت؛ يمكنك العودة إلى المنزل"}</p>}
-          <Button className="w-full" variant="outline" disabled={busy||onBreak||!canRequestBreak(shift.status,shift.break_status,shift.break_request_used,work)||!!orders.data?.length} onClick={()=>void act("request_break")}><Coffee className="size-4"/>طلب بريك ساعة</Button>
-        </section>
-        <section className="space-y-3"><h2 className="font-bold tracking-normal">الطلب الحالي</h2>
-          {!orders.data?.length?<div className="py-8 text-center text-muted-foreground"><PackageCheck className="mx-auto mb-3 size-10"/><p>{onBreak?"أنت في البريك":"لا يوجد طلب حالياً"}</p></div>:orders.data.map(o=><article key={o.id} className="space-y-4 rounded-lg border bg-card p-4">
-            <p className="font-bold">طلب #{o.id.slice(0,8)}</p>
-            <Location title={`الاستلام · ${o.restaurants?.name_ar??"المطعم"}`} address={o.pickup_address??"لم تحدد الإدارة موقع الاستلام"}/>
-            <Location title="التسليم" address={o.address}/>
-            <LiveOrderMap orderId={o.id}/>
-            <p className="text-sm text-muted-foreground">{!o.courier_accepted_at?"طلب جديد — اقبله ليبدأ المطعم التحضير":o.status==="on_the_way"?"في الطريق للعميل":o.status==="ready"?"الطلب جاهز في المطعم":"المطعم يحضّر الطلب"}</p>
-            {!o.courier_accepted_at?<Button className="w-full" disabled={busy||onBreak||work>=WORK_SECONDS} onClick={()=>void act("accept",o.id)}>قبول الطلب</Button>
-            :o.status!=="on_the_way"?<Button className="w-full" disabled={busy||onBreak||work>=WORK_SECONDS} onClick={()=>void act("pickup",o.id)}>تم استلام الطلب من المطعم</Button>
-            :<div className="space-y-2"><label className="block text-sm font-medium" htmlFor={`code-${o.id}`}>كود العميل</label><input id={`code-${o.id}`} inputMode="numeric" maxLength={4} dir="ltr" value={code} onChange={e=>setCode(e.target.value.replace(/\D/g,""))} className="w-full rounded-md border bg-background p-3 text-center text-2xl tracking-[0.5em]" placeholder="••••"/><Button className="w-full" disabled={busy||code.length!==4} onClick={()=>void deliver(o.id)}>تسليم الطلب</Button></div>}
-            {o.status!=="on_the_way"&&<Button className="w-full" variant="outline" disabled={busy||onBreak||!canRejectOrder(shift.rejected_order_id,o.status,work)} onClick={()=>void act("reject",o.id)}>رفض الطلب</Button>}
-          </article>)}
-        </section>
-      </>}
-      {!!shifts.data?.filter(s=>['completed','incomplete'].includes(s.status)).length&&<section className="border-t pt-4"><h2 className="mb-3 text-sm font-bold tracking-normal">سجل الأيام</h2>{shifts.data.filter(s=>['completed','incomplete'].includes(s.status)).map(s=><div key={s.id} className="flex justify-between gap-3 py-2 text-sm"><span>{new Date(s.scheduled_start).toLocaleDateString("ar-SA")}</span><span className={s.salary_day_eligible?"text-success":"text-destructive"}>{s.salary_day_eligible?"يوم مستحق":"غير مستحق — أقل من 10 ساعات"}</span></div>)}</section>}
-    </main>
-  </div>;
+
+  const handleDeliver = async (orderId: string) => {
+    setBusy(true);
+    try {
+      const r = (await deliverFn({ data: { order_id: orderId, code } })) as {
+        ok: boolean;
+        remaining?: number;
+        lockedAfterDelivery?: boolean;
+      };
+      if (r.ok) {
+        setCode("");
+        if (r.lockedAfterDelivery) {
+          toast.error(
+            "تم تسليم الطلب للعميل، وتم إغلاق حسابك نهائياً بسبب اختلاف الصورة الحية للمندوب لحين مراجعة الإدارة.",
+          );
+        } else {
+          toast.success("تم تسليم الطلب بنجاح وإضافته لسجل الطلبات المنجزة");
+        }
+        refresh();
+      } else {
+        toast.error(`الكود غير صحيح — المتبقي ${r.remaining ?? 0} محاولات`);
+      }
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "تعذر تسليم الطلب");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  // PERMANENT ACCOUNT LOCK SCREEN WHEN IDENTITY PHOTO MISMATCH OCCURRED
+  if (profile?.identity_violation_locked) {
+    return (
+      <div
+        dir="rtl"
+        className="foodhub-staff flex min-h-screen flex-col items-center justify-center bg-background p-6 text-foreground"
+      >
+        <div className="w-full max-w-md rounded-2xl border-2 border-destructive bg-card p-6 text-center shadow-lg space-y-4">
+          <div className="mx-auto flex size-16 items-center justify-center rounded-full bg-destructive/15 text-destructive">
+            <ShieldAlert className="size-9" />
+          </div>
+          <h1 className="text-xl font-bold text-destructive">تم إغلاق الحساب بشكل نهائي</h1>
+          <p className="text-sm text-muted-foreground leading-relaxed">
+            تم إيقاف وإغلاق حساب المندوب بسبب <strong>إخلال بالنظام (اختلاف الصورة الحية للمندوب أثناء الشيفت)</strong>.
+          </p>
+          <div className="rounded-xl bg-destructive/10 p-3 text-xs text-destructive font-medium">
+            لا يمكن تشغيل التطبيق أو استقبال أي طلبات إلا بعد مراجعة الإدارة وفتح الحساب من خلال تطبيق الأدمن (FoodHub Admin).
+          </div>
+          <div className="flex gap-2 pt-2">
+            <Button variant="outline" className="flex-1" onClick={refresh}>
+              <RefreshCw className="size-4" />
+              تحديث الحالة
+            </Button>
+            <Button
+              variant="destructive"
+              className="flex-1"
+              onClick={() => void supabase.auth.signOut()}
+            >
+              <LogOut className="size-4" />
+              تسجيل الخروج
+            </Button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Build map points for the dedicated Map tab
+  const mapPoints = orderMapPoints(
+    myActiveOrder ?? null,
+    coords ?? { latitude: 24.7136, longitude: 46.6753 },
+  );
+
+  return (
+    <div dir="rtl" className="foodhub-staff min-h-screen bg-background pb-24 text-foreground">
+      {/* Top Header with Courier Portrait Icon, Sound Alert Button, Refresh, Logout */}
+      <header className="sticky top-0 z-20 flex items-center justify-between border-b bg-card px-4 py-3 pt-[max(0.75rem,env(safe-area-inset-top))] shadow-xs">
+        <div className="flex items-center gap-3">
+          {/* Portrait Icon Button -> Opens Profile */}
+          <button
+            type="button"
+            onClick={() => setTab("profile")}
+            title="الملف الشخصي وصورة المندوب"
+            className="relative flex size-11 shrink-0 items-center justify-center overflow-hidden rounded-full border-2 border-primary bg-secondary text-foreground shadow-xs"
+          >
+            {profile?.portrait_url ? (
+              <img
+                src={profile.portrait_url}
+                alt={profile.full_name}
+                className="size-full object-cover"
+              />
+            ) : (
+              <User className="size-5 text-primary" />
+            )}
+            <span
+              className={`absolute bottom-0 start-0 size-3 rounded-full border-2 border-card ${
+                isOnline ? "bg-emerald-500" : "bg-muted-foreground"
+              }`}
+            />
+          </button>
+
+          <div>
+            <div className="flex items-center gap-1.5">
+              <h1 className="text-base font-bold leading-tight">
+                {profile?.full_name || "FoodHub Rider"}
+              </h1>
+              {isVerifiedToday && (
+                <span
+                  title="تم التحقق من الهوية اليوم"
+                  className="inline-flex items-center rounded-full bg-emerald-500/15 px-1.5 py-0.5 text-[10px] font-bold text-emerald-700"
+                >
+                  موثّق اليوم ✓
+                </span>
+              )}
+            </div>
+            <p className="text-xs text-muted-foreground">
+              أنجزت <strong>{completedCount}</strong> طلب ·{" "}
+              {isOnline ? "شيفت 10 ساعات نشط" : "أوفلاين"}
+            </p>
+          </div>
+        </div>
+
+        <div className="flex items-center gap-1">
+          {/* Active Order Sound Alert Button */}
+          <Button
+            size="sm"
+            variant={activeOrders.length > 0 ? "default" : "outline"}
+            onClick={() => {
+              playOrderAlertChime();
+              setAlertEnabled((v) => !v);
+              toast.info(
+                !alertEnabled
+                  ? "تم تفعيل جرس تنبيه الطلبات النشطة 🔊"
+                  : "تم اختبار نغمة تنبيه الطلب النشط 🔔",
+              );
+            }}
+            aria-label="جرس تنبيه الطلب النشط"
+            className="gap-1 px-2.5 text-xs"
+          >
+            {alertEnabled ? <BellRing className="size-4" /> : <VolumeX className="size-4" />}
+            <span className="hidden sm:inline">تنبيه الطلب</span>
+          </Button>
+
+          <Button
+            size="icon"
+            variant="ghost"
+            aria-label="التحقق الحي من الهوية"
+            title="إثبات الهوية بصورة حية"
+            onClick={() => setShowLiveSelfieModal(true)}
+          >
+            <Camera className="size-4" />
+          </Button>
+
+          <Button size="icon" variant="ghost" aria-label="تحديث" onClick={refresh}>
+            <RefreshCw className="size-4" />
+          </Button>
+
+          <Button
+            size="icon"
+            variant="ghost"
+            aria-label="خروج"
+            onClick={() => void supabase.auth.signOut()}
+          >
+            <LogOut className="size-4" />
+          </Button>
+        </div>
+      </header>
+
+      <main className="mx-auto max-w-lg space-y-4 p-4">
+        {gpsError && (
+          <p role="alert" className="rounded-xl border border-destructive/40 bg-destructive/10 p-3 text-xs text-destructive">
+            {gpsError}
+          </p>
+        )}
+
+        {/* Pending Lock Warning Banner (if live photo mismatched while delivering an active order) */}
+        {profile?.identity_violation_pending && (
+          <div
+            role="alert"
+            className="rounded-2xl border-2 border-destructive bg-destructive/10 p-4 text-xs text-destructive space-y-1"
+          >
+            <p className="font-bold flex items-center gap-1.5 text-sm">
+              <AlertTriangle className="size-4 shrink-0" />
+              إشعار إخلال بالنظام — عدم تطابق الصورة الحية للمندوب
+            </p>
+            <p>
+              تم رصد اختلاف في الصورة الحية للمندوب. ينتظر التطبيق إتمام توصيل الطلب الحالي للعميل، ثم سيتم إغلاق الحساب بشكل نهائي لحين مراجعة الإدارة.
+            </p>
+          </div>
+        )}
+
+        {/* TAB 1: CURRENT ORDER & AUTOMATIC 10-HOUR SHIFT */}
+        {tab === "current" && (
+          <>
+            {/* Quick Summary KPIs: Completed Orders, Work Hours, Rejection Right */}
+            <section className="grid grid-cols-3 gap-2.5">
+              <div className="rounded-2xl border bg-card p-3 text-center shadow-xs">
+                <p className="text-[11px] text-muted-foreground">الطلبات المنجزة</p>
+                <p className="mt-1 text-xl font-bold text-primary">{completedCount}</p>
+                <p className="text-[10px] text-muted-foreground">طلب مكتمل</p>
+              </div>
+              <div className="rounded-2xl border bg-card p-3 text-center shadow-xs">
+                <p className="text-[11px] text-muted-foreground">ساعات الشيفت</p>
+                <p className="mt-1 text-base font-bold tabular-nums" dir="ltr">
+                  {(work / 3600).toFixed(1)} / 10h
+                </p>
+                <p className="text-[10px] text-muted-foreground">
+                  {salaryDayEligible(work) ? "الأجر اليومي مستحق ✓" : "يلزم إكمال 10 ساعات"}
+                </p>
+              </div>
+              <div className="rounded-2xl border bg-card p-3 text-center shadow-xs">
+                <p className="text-[11px] text-muted-foreground">حق رفض الطلب</p>
+                <p className="mt-1 text-base font-bold">
+                  {shift?.rejected_order_id ? "0 / 1" : "1 / 1"}
+                </p>
+                <p className="text-[10px] text-muted-foreground">
+                  {shift?.rejected_order_id ? "تم استخدامه" : "طلب واحد بالشيفت"}
+                </p>
+              </div>
+            </section>
+
+            {/* Online Button -> Automatic 10-Hour Shift Entry */}
+            <section className="flex items-center justify-between rounded-2xl border bg-card p-4 shadow-xs">
+              <div className="space-y-1">
+                <p className="font-bold tracking-normal">
+                  {isOnline ? "أونلاين — شيفت 10 ساعات تلقائي نشط" : "أوفلاين — اضغط أونلاين لبدء الشيفت تلقائياً"}
+                </p>
+                <p className="text-xs text-muted-foreground">
+                  {isOnline
+                    ? "تصلك الطلبات من أقرب مطعم أو محل لموقعك الحالي"
+                    : "بمجرد الضغط على أونلاين يبدأ شيفت 10 ساعات عمل تلقائياً"}
+                </p>
+              </div>
+              <Button
+                size="lg"
+                variant={isOnline ? "outline" : "default"}
+                disabled={busy}
+                onClick={() => void toggleOnline(!isOnline)}
+              >
+                <Bike className="size-4" />
+                {isOnline ? "إنهاء الشيفت" : "أونلاين"}
+              </Button>
+            </section>
+
+            {!shift ? (
+              <section className="rounded-2xl border bg-card py-12 text-center space-y-2">
+                <Clock className="mx-auto mb-2 size-10 text-muted-foreground" />
+                <h2 className="font-bold tracking-normal">أنت حالياً أوفلاين</h2>
+                <p className="text-sm text-muted-foreground px-4">
+                  اضغط زر «أونلاين» بالأعلى للدخول الفوري في شيفت تلقائي لمدة 10 ساعات واستقبال الطلبات الأقرب للمطعم.
+                </p>
+              </section>
+            ) : (
+              <>
+                {/* 10-Hour Shift Timer & Break Card */}
+                <section className="space-y-3 rounded-2xl border bg-card p-4 shadow-xs">
+                  <div className="flex items-center justify-between">
+                    <h2 className="font-bold tracking-normal">شيفت الـ 10 ساعات التلقائي</h2>
+                    <span className="rounded-full bg-secondary px-2.5 py-0.5 text-xs font-semibold">
+                      {available ? "متاح لاستقبال الطلبات" : onBreak ? "في البريك (متوقف مؤقتاً)" : "اكتمل الشيفت"}
+                    </span>
+                  </div>
+
+                  <div className="rounded-xl bg-secondary/50 py-3 text-center">
+                    <p className="text-xs text-muted-foreground">ساعات العمل الفعلية الصافية (بدون البريك)</p>
+                    <p dir="ltr" className="mt-1 text-3xl font-bold tabular-nums">
+                      {duration(work)}
+                    </p>
+                    <p className="mt-1 text-xs font-medium">
+                      المتبقي لإكمال الـ 10 ساعات واستحقاق الأجر اليومي:{" "}
+                      <strong dir="ltr">{duration(Math.max(0, WORK_SECONDS - work))}</strong>
+                    </p>
+                  </div>
+
+                  <p className="text-[11px] text-muted-foreground leading-relaxed">
+                    • يُشترط إكمال <strong>10 ساعات عمل فعلية كاملة</strong> لاحتساب الأجر اليومي.
+                    <br />• حتى لو أخذت بريك (ربع ساعة أو أكثر)، لا يُحسب وقت البريك ضمن الـ 10 ساعات ويلزم إكمال الـ 10 ساعات عمل.
+                  </p>
+
+                  {onBreak ? (
+                    <div className="space-y-2 rounded-xl border border-amber-500/40 bg-amber-500/10 p-3 text-center">
+                      <p className="text-xs font-bold">
+                        أنت الآن في البريك — المتبقي{" "}
+                        <span dir="ltr">
+                          {duration(Math.max(0, (Date.parse(shift.break_ends_at ?? "") - now) / 1000))}
+                        </span>
+                      </p>
+                      <Button
+                        size="sm"
+                        variant="default"
+                        disabled={busy}
+                        onClick={() => void handleBreak("end_break")}
+                      >
+                        إنهاء البريك والعودة لاستكمال الـ 10 ساعات
+                      </Button>
+                    </div>
+                  ) : (
+                    !shift.break_request_used &&
+                    work < WORK_SECONDS &&
+                    !activeOrders.some((o) => o.courier_id === userId) && (
+                      <div className="grid grid-cols-3 gap-2 pt-1">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          disabled={busy}
+                          onClick={() => void handleBreak("start_break", 15)}
+                        >
+                          <Coffee className="size-3.5" />
+                          بريك ربع ساعة
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          disabled={busy}
+                          onClick={() => void handleBreak("start_break", 30)}
+                        >
+                          <Coffee className="size-3.5" />
+                          بريك نصف ساعة
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          disabled={busy}
+                          onClick={() => void handleBreak("start_break", 60)}
+                        >
+                          <Coffee className="size-3.5" />
+                          بريك ساعة
+                        </Button>
+                      </div>
+                    )
+                  )}
+
+                  {/* Daily Live Identity Verification Trigger Bar */}
+                  <div className="flex items-center justify-between rounded-xl border bg-background p-3 text-xs">
+                    <div className="flex items-center gap-2">
+                      <Camera className="size-4 text-primary shrink-0" />
+                      <span>
+                        {isVerifiedToday
+                          ? "تم إثبات الهوية بالصورة الحية لهذا اليوم بنجاح"
+                          : "مطلوب إثبات الهوية بصورة حية للمندوب خلال الشيفت"}
+                      </span>
+                    </div>
+                    <Button
+                      size="sm"
+                      variant={isVerifiedToday ? "outline" : "default"}
+                      onClick={() => setShowLiveSelfieModal(true)}
+                    >
+                      {isVerifiedToday ? "إعادة الفحص" : "تصوير الآن"}
+                    </Button>
+                  </div>
+                </section>
+
+                {/* Current Active Order Section */}
+                <section className="space-y-3">
+                  <div className="flex items-center justify-between">
+                    <h2 className="font-bold tracking-normal">الطلب الحالي والأقرب للمطعم</h2>
+                    {activeOrders.length > 0 && (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={playOrderAlertChime}
+                        className="h-7 gap-1 text-xs"
+                      >
+                        <Volume2 className="size-3.5 text-primary" />
+                        تشغيل صوت التنبيه
+                      </Button>
+                    )}
+                  </div>
+
+                  {!activeOrders.length ? (
+                    <div className="rounded-2xl border bg-card py-10 text-center text-muted-foreground">
+                      <PackageCheck className="mx-auto mb-3 size-10" />
+                      <p className="font-medium">
+                        {onBreak ? "أنت في البريك حالياً" : "لا يوجد طلب نشط حالياً"}
+                      </p>
+                      <p className="mt-1 text-xs">
+                        سيصدر التطبيق تنبيهاً صوتياً فور وصول طلب جديد من أقرب مطعم لموقعك
+                      </p>
+                    </div>
+                  ) : (
+                    activeOrders.map((o, idx) => {
+                      const isMine = o.courier_id === userId;
+                      const canReject = canRejectOrder(shift.rejected_order_id, o.status, work);
+                      return (
+                        <article
+                          key={o.id}
+                          className="space-y-4 rounded-2xl border bg-card p-4 shadow-xs"
+                        >
+                          <div className="flex flex-wrap items-center justify-between gap-2">
+                            <div className="flex items-center gap-2">
+                              <p className="font-bold">طلب #{o.id.slice(0, 8)}</p>
+                              {isMine ? (
+                                <span className="rounded-full bg-primary/20 px-2.5 py-0.5 text-xs font-bold">
+                                  طلبك الحالي
+                                </span>
+                              ) : idx === 0 ? (
+                                <span className="rounded-full bg-emerald-500/15 px-2.5 py-0.5 text-xs font-bold text-emerald-700">
+                                  الأقرب للمطعم
+                                </span>
+                              ) : null}
+                            </div>
+                            <div className="flex items-center gap-2 text-xs">
+                              {o.distance_km != null && (
+                                <span className="inline-flex items-center gap-1 rounded-md bg-secondary px-2 py-1 font-semibold">
+                                  <MapPin className="size-3.5 text-primary" />
+                                  {o.distance_km} كم عن المطعم
+                                </span>
+                              )}
+                              <span className="rounded-md bg-secondary px-2 py-1 font-bold">
+                                {Number(o.total).toFixed(2)} ر.س
+                              </span>
+                            </div>
+                          </div>
+
+                          <Location
+                            title={`الاستلام · ${o.restaurant_name}`}
+                            address={o.pickup_address ?? "موقع المطعم على الخريطة"}
+                          />
+                          <Location title="التسليم للعميل" address={o.address} />
+                          <LiveOrderMap orderId={o.id} />
+
+                          <p className="text-sm text-muted-foreground">
+                            {!isMine || !o.courier_accepted_at
+                              ? "طلب جديد من مطعم قريب — اقبله ليبدأ المطعم التحضير"
+                              : o.status === "on_the_way"
+                                ? "في الطريق للعميل — أدخل كود التسليم عند الوصول"
+                                : o.status === "ready"
+                                  ? "الطلب جاهز في المطعم للاستلام"
+                                  : "المطعم يحضّر الطلب الآن"}
+                          </p>
+
+                          {!isMine || !o.courier_accepted_at ? (
+                            <Button
+                              className="w-full"
+                              disabled={busy || onBreak}
+                              onClick={() => void handleOrderAction("accept", o.id)}
+                            >
+                              قبول الطلب
+                            </Button>
+                          ) : o.status !== "on_the_way" ? (
+                            <Button
+                              className="w-full"
+                              disabled={busy || onBreak}
+                              onClick={() => void handleOrderAction("pickup", o.id)}
+                            >
+                              <Store className="size-4" />
+                              تم استلام الطلب من المطعم
+                            </Button>
+                          ) : (
+                            <div className="space-y-2">
+                              <label className="block text-sm font-medium" htmlFor={`code-${o.id}`}>
+                                كود العميل (4 أرقام)
+                              </label>
+                              <input
+                                id={`code-${o.id}`}
+                                inputMode="numeric"
+                                maxLength={4}
+                                dir="ltr"
+                                value={code}
+                                onChange={(e) => setCode(e.target.value.replace(/\D/g, ""))}
+                                className="w-full rounded-md border bg-background p-3 text-center text-2xl tracking-[0.5em]"
+                                placeholder="••••"
+                              />
+                              <Button
+                                className="w-full"
+                                disabled={busy || code.length !== 4}
+                                onClick={() => void handleDeliver(o.id)}
+                              >
+                                تسليم الطلب
+                              </Button>
+                            </div>
+                          )}
+
+                          {o.status !== "on_the_way" && (
+                            <Button
+                              className="w-full"
+                              variant="outline"
+                              disabled={busy || onBreak || !canReject}
+                              onClick={() => void handleOrderAction("reject", o.id)}
+                            >
+                              {shift.rejected_order_id
+                                ? "تم استنفاد حق الرفض الوحيد في هذا الشيفت"
+                                : "رفض الطلب (متاح مرة واحدة في الشيفت)"}
+                            </Button>
+                          )}
+                        </article>
+                      );
+                    })
+                  )}
+                </section>
+              </>
+            )}
+          </>
+        )}
+
+        {/* TAB 2: DEDICATED INTERACTIVE MAP */}
+        {tab === "map" && (
+          <section className="space-y-3 rounded-2xl border bg-card p-4 shadow-xs">
+            <div className="flex items-center justify-between">
+              <div>
+                <h2 className="font-bold">خريطة المندوب والمواقع الحية</h2>
+                <p className="text-xs text-muted-foreground">
+                  تظهر موقعك الحالي، موقع المطعم للاستلام، وموقع العميل للتسليم
+                </p>
+              </div>
+              {coords && (
+                <span className="rounded-full bg-emerald-500/15 px-2.5 py-0.5 text-xs font-bold text-emerald-700">
+                  GPS متصل
+                </span>
+              )}
+            </div>
+
+            <Suspense
+              fallback={
+                <div className="flex h-80 items-center justify-center rounded-xl border bg-muted text-sm">
+                  جارِ تحميل الخريطة…
+                </div>
+              }
+            >
+              <OrderMapCanvas points={mapPoints} />
+            </Suspense>
+
+            {myActiveOrder && (
+              <div className="rounded-xl bg-secondary/50 p-3 text-xs space-y-1">
+                <p className="font-bold">الطلب النشط على الخريطة: #{myActiveOrder.id.slice(0, 8)}</p>
+                <p>الاستلام: {myActiveOrder.restaurant_name} — {myActiveOrder.pickup_address ?? "المطعم"}</p>
+                <p>التسليم: {myActiveOrder.address}</p>
+              </div>
+            )}
+          </section>
+        )}
+
+        {/* TAB 3: COMPLETED ORDERS & SHIFT WAGE HISTORY */}
+        {tab === "history" && (
+          <section className="space-y-4">
+            <div className="rounded-2xl border bg-card p-4 shadow-xs flex items-center justify-between">
+              <div>
+                <h2 className="font-bold">إجمالي الطلبات التي تم إنجازها</h2>
+                <p className="text-xs text-muted-foreground">جميع الطلبات المسلمة للعملاء بنجاح</p>
+              </div>
+              <span className="rounded-2xl bg-primary px-4 py-2 text-xl font-black text-primary-foreground">
+                {completedCount}
+              </span>
+            </div>
+
+            <div className="space-y-2.5">
+              <h3 className="text-sm font-bold">الطلبات السابقة ({pastOrders.length})</h3>
+              {pastOrders.length === 0 ? (
+                <div className="rounded-2xl border bg-card py-10 text-center text-sm text-muted-foreground">
+                  لا توجد طلبات مكتملة في السجل بعد
+                </div>
+              ) : (
+                pastOrders.map((o) => (
+                  <article key={o.id} className="rounded-2xl border bg-card p-4 shadow-xs space-y-1.5">
+                    <div className="flex items-center justify-between">
+                      <span className="font-bold text-sm">طلب #{o.id.slice(0, 8)}</span>
+                      <span className="rounded-full bg-emerald-500/15 px-2.5 py-0.5 text-xs font-bold text-emerald-700">
+                        تم التسليم ✓
+                      </span>
+                    </div>
+                    <p className="text-xs font-semibold text-foreground">{o.restaurant_name}</p>
+                    <p className="text-xs text-muted-foreground">{o.address}</p>
+                    <div className="flex items-center justify-between pt-1 text-xs text-muted-foreground border-t">
+                      <span>{new Date(o.updated_at).toLocaleString("ar-SA")}</span>
+                      <strong className="text-foreground">{Number(o.total).toFixed(2)} ر.س</strong>
+                    </div>
+                  </article>
+                ))
+              )}
+            </div>
+
+            <div className="space-y-2.5 pt-2 border-t">
+              <h3 className="text-sm font-bold">سجل الشيفتات والأجر اليومي (شرط 10 ساعات)</h3>
+              {shiftHistory.length === 0 ? (
+                <p className="text-xs text-muted-foreground">لا توجد شيفتات سابقة مسجلة</p>
+              ) : (
+                shiftHistory.map((s) => (
+                  <div
+                    key={s.id}
+                    className="flex items-center justify-between rounded-xl border bg-card p-3 text-xs"
+                  >
+                    <div>
+                      <p className="font-bold">
+                        {new Date(s.scheduled_start).toLocaleDateString("ar-SA")}
+                      </p>
+                      <p className="text-muted-foreground">
+                        ساعات العمل الفعلية: {(Number(s.worked_seconds || 0) / 3600).toFixed(2)} / 10 ساعات
+                      </p>
+                    </div>
+                    <span
+                      className={`rounded-full px-2.5 py-1 font-bold ${
+                        s.salary_day_eligible
+                          ? "bg-emerald-500/15 text-emerald-700"
+                          : "bg-destructive/15 text-destructive"
+                      }`}
+                    >
+                      {s.salary_day_eligible
+                        ? "أجر يومي مستحق ✓"
+                        : "غير مستحق — لم يكمل 10 ساعات"}
+                    </span>
+                  </div>
+                ))
+              )}
+            </div>
+          </section>
+        )}
+
+        {/* TAB 4: COURIER SUPPORT */}
+        {tab === "support" && (
+          <section className="space-y-4">
+            <div className="rounded-2xl border bg-card p-5 space-y-3 shadow-xs">
+              <div className="flex items-center gap-3">
+                <div className="flex size-11 items-center justify-center rounded-2xl bg-primary text-primary-foreground">
+                  <Headphones className="size-6" />
+                </div>
+                <div>
+                  <h2 className="font-bold text-base">دعم المناديب المباشر</h2>
+                  <p className="text-xs text-muted-foreground">
+                    فريق العمليات متاح على مدار الساعة لمساعدة الكباتن
+                  </p>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-2 pt-2">
+                <Button asChild variant="outline" className="gap-1.5">
+                  <a href="tel:920000000">
+                    <PhoneCall className="size-4 text-primary" />
+                    اتصال طوارئ العمليات
+                  </a>
+                </Button>
+                <Button
+                  variant="outline"
+                  onClick={() => setShowLiveSelfieModal(true)}
+                  className="gap-1.5"
+                >
+                  <Camera className="size-4 text-primary" />
+                  تحديث الصورة الحية
+                </Button>
+              </div>
+            </div>
+
+            <form
+              onSubmit={(e) => {
+                e.preventDefault();
+                if (!supportMessage.trim()) return;
+                toast.success("تم إرسال بلاغك إلى إدارة العمليات وسيتم الرد عليك فوراً");
+                setSupportMessage("");
+              }}
+              className="rounded-2xl border bg-card p-5 space-y-3 shadow-xs"
+            >
+              <h3 className="font-bold text-sm">إرسال تذكرة دعم أو بلاغ للإدارة</h3>
+              <label className="block space-y-1 text-xs">
+                <span>نوع المشكلة</span>
+                <select
+                  value={supportTopic}
+                  onChange={(e) => setSupportTopic(e.target.value)}
+                  className="w-full rounded-md border bg-background px-3 py-2 text-sm"
+                >
+                  <option value="تأخر استلام الطلب من المطعم">تأخر استلام الطلب من المطعم</option>
+                  <option value="تعذر الوصول لموقع العميل">تعذر الوصول لموقع العميل</option>
+                  <option value="مشكلة في احتساب ساعات الشيفت (10 ساعات)">
+                    مشكلة في احتساب ساعات الشيفت (10 ساعات)
+                  </option>
+                  <option value="مراجعة التحقق الحي من الصورة الشخصية">
+                    مراجعة التحقق الحي من الصورة الشخصية
+                  </option>
+                  <option value="أخرى">أخرى</option>
+                </select>
+              </label>
+              <label className="block space-y-1 text-xs">
+                <span>تفاصيل البلاغ</span>
+                <Input
+                  required
+                  value={supportMessage}
+                  onChange={(e) => setSupportMessage(e.target.value)}
+                  placeholder="اكتب تفاصيل المشكلة أو رقم الطلب هنا..."
+                />
+              </label>
+              <Button type="submit" className="w-full gap-1.5">
+                <Send className="size-4" />
+                إرسال البلاغ للإدارة
+              </Button>
+            </form>
+          </section>
+        )}
+
+        {/* TAB 5: COURIER PROFILE & PORTRAIT */}
+        {tab === "profile" && (
+          <section className="space-y-4">
+            <div className="rounded-2xl border bg-card p-5 shadow-xs space-y-4">
+              <div className="flex items-center gap-4">
+                <div className="relative flex size-20 shrink-0 items-center justify-center overflow-hidden rounded-2xl border-2 border-primary bg-secondary">
+                  {profile?.portrait_url ? (
+                    <img
+                      src={profile.portrait_url}
+                      alt={profile.full_name}
+                      className="size-full object-cover"
+                    />
+                  ) : (
+                    <User className="size-9 text-primary" />
+                  )}
+                </div>
+                <div className="space-y-1">
+                  <h2 className="text-lg font-bold">{profile?.full_name}</h2>
+                  <p className="text-xs text-muted-foreground" dir="ltr">
+                    {profile?.email}
+                  </p>
+                  <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/15 px-2.5 py-0.5 text-xs font-bold text-emerald-700">
+                    <CheckCircle2 className="size-3.5" />
+                    مندوب معتمد في FoodHub
+                  </span>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3 border-t pt-4 text-xs">
+                <div className="rounded-xl bg-secondary/50 p-3">
+                  <span className="text-muted-foreground block">رقم الجوال</span>
+                  <strong className="mt-1 block text-sm" dir="ltr">
+                    {profile?.phone || "غير مسجل"}
+                  </strong>
+                </div>
+                <div className="rounded-xl bg-secondary/50 p-3">
+                  <span className="text-muted-foreground block">وسيلة التوصيل</span>
+                  <strong className="mt-1 block text-sm">
+                    {profile?.vehicle === "motorcycle" ? "دباب (دراجة نارية)" : "سيارة"}
+                  </strong>
+                </div>
+                <div className="rounded-xl bg-secondary/50 p-3">
+                  <span className="text-muted-foreground block">الطلبات المنجزة</span>
+                  <strong className="mt-1 block text-sm">{completedCount} طلب مكتمل</strong>
+                </div>
+                <div className="rounded-xl bg-secondary/50 p-3">
+                  <span className="text-muted-foreground block">التحقق اليومي (صورة حية)</span>
+                  <strong className="mt-1 block text-sm">
+                    {isVerifiedToday ? "مكتمل اليوم ✓" : "مطلوب التحقق"}
+                  </strong>
+                </div>
+              </div>
+
+              <Button
+                variant="outline"
+                className="w-full gap-2"
+                onClick={() => setShowLiveSelfieModal(true)}
+              >
+                <Camera className="size-4 text-primary" />
+                إثبات الهوية بصورة حية الآن
+              </Button>
+            </div>
+          </section>
+        )}
+      </main>
+
+      {/* Bottom Navigation Bar for FoodHub Rider */}
+      <nav className="fixed inset-x-0 bottom-0 z-20 flex border-t bg-card pb-[env(safe-area-inset-bottom)] shadow-sm">
+        {[
+          { id: "current" as RiderTab, label: "الطلب والشيفت", icon: Bike },
+          { id: "map" as RiderTab, label: "الخريطة", icon: MapIcon },
+          { id: "history" as RiderTab, label: `السابقة (${completedCount})`, icon: History },
+          { id: "support" as RiderTab, label: "دعم المناديب", icon: Headphones },
+          { id: "profile" as RiderTab, label: "الملف الشخصي", icon: User },
+        ].map((item) => (
+          <Button
+            key={item.id}
+            variant="ghost"
+            onClick={() => setTab(item.id)}
+            className={`flex flex-1 flex-col items-center gap-0.5 py-2 text-[11px] ${
+              tab === item.id ? "font-bold text-primary" : "text-muted-foreground"
+            }`}
+          >
+            <item.icon className="size-5" />
+            <span>{item.label}</span>
+          </Button>
+        ))}
+      </nav>
+
+      {/* Daily Live Selfie Identity Verification Modal */}
+      {showLiveSelfieModal && (
+        <LiveSelfieVerificationModal
+          registeredPortraitUrl={profile?.portrait_url ?? null}
+          hasActiveOrder={activeOrders.some((o) => o.courier_id === userId)}
+          onClose={() => setShowLiveSelfieModal(false)}
+          onSubmit={async (dataUrl, matched) => {
+            setBusy(true);
+            try {
+              const res = await verifyFn({
+                data: { live_photo_data_url: dataUrl, matched },
+              });
+              setShowLiveSelfieModal(false);
+              refresh();
+              if (res.status === "verified") {
+                toast.success("تم التحقق من مطابقة صورتك الحية بنجاح ✓");
+              } else if (res.status === "pending_lock_after_delivery") {
+                toast.error(
+                  "تم رصد اختلاف في الصورة الحية للمندوب! سينتظر التطبيق توصيل الطلب الحالي ثم يغلق الحساب نهائياً لحين مراجعة الإدارة.",
+                );
+              } else {
+                toast.error(
+                  "تم إغلاق الحساب نهائياً بسبب اختلاف الصورة الحية للمندوب — راجع الإدارة لفتح الحساب.",
+                );
+              }
+            } catch (e) {
+              toast.error(e instanceof Error ? e.message : "تعذر التحقق من الصورة");
+            } finally {
+              setBusy(false);
+            }
+          }}
+        />
+      )}
+    </div>
+  );
 }
-function Location({title,address}:{title:string;address:string}) {
-  return <div><p className="mb-1 text-xs text-muted-foreground">{title}</p><p className="text-sm leading-7">{address}</p><Button asChild variant="outline" size="sm" className="mt-2"><a href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(address)}`} target="_blank" rel="noreferrer"><Navigation className="size-4"/>الموقع</a></Button></div>;
+
+function LiveSelfieVerificationModal({
+  registeredPortraitUrl,
+  hasActiveOrder,
+  onClose,
+  onSubmit,
+}: {
+  registeredPortraitUrl: string | null;
+  hasActiveOrder: boolean;
+  onClose: () => void;
+  onSubmit: (dataUrl: string, matched: boolean) => Promise<void>;
+}) {
+  const videoRef = useRef<HTMLVideoElement | null>(null);
+  const [captured, setCaptured] = useState<string | null>(null);
+  const [cameraError, setCameraError] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+
+  useEffect(() => {
+    let stream: MediaStream | null = null;
+    if (typeof navigator !== "undefined" && navigator.mediaDevices?.getUserMedia) {
+      navigator.mediaDevices
+        .getUserMedia({ video: { facingMode: "user", width: 480, height: 480 } })
+        .then((s) => {
+          stream = s;
+          if (videoRef.current) {
+            videoRef.current.srcObject = s;
+          }
+        })
+        .catch(() => setCameraError(true));
+    } else {
+      setCameraError(true);
+    }
+    return () => {
+      stream?.getTracks().forEach((t) => t.stop());
+    };
+  }, []);
+
+  const captureFrame = () => {
+    if (!videoRef.current) return;
+    const canvas = document.createElement("canvas");
+    canvas.width = 360;
+    canvas.height = 360;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return;
+    ctx.drawImage(videoRef.current, 0, 0, canvas.width, canvas.height);
+    setCaptured(canvas.toDataURL("image/jpeg", 0.8));
+  };
+
+  const handleFileFallback = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => {
+      if (typeof reader.result === "string") setCaptured(reader.result);
+    };
+    reader.readAsDataURL(file);
+  };
+
+  return (
+    <div
+      dir="rtl"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 p-4 backdrop-blur-xs"
+    >
+      <div className="w-full max-w-md rounded-2xl border bg-card p-5 text-foreground shadow-xl space-y-4">
+        <div className="flex items-center justify-between border-b pb-3">
+          <div className="flex items-center gap-2">
+            <Camera className="size-5 text-primary" />
+            <h2 className="font-bold text-base">التحقق اليومي الحي من هوية المندوب</h2>
+          </div>
+          <Button size="sm" variant="ghost" onClick={onClose}>
+            إغلاق
+          </Button>
+        </div>
+
+        <p className="text-xs text-muted-foreground leading-relaxed">
+          يطلب التطبيق يومياً وبشكل تلقائي خلال الشيفت صورة سيلفي حية للتأكد من أنك نفس المندوب المسجل.
+          <strong className="text-destructive block mt-1">
+            تنبيه: في حال اختلاف الصورة عن المندوب المسجل، ينتظر التطبيق توصيل الطلب الحالي ثم يغلق الحساب نهائياً ولا يفتح إلا بمراجعة الأدمن.
+          </strong>
+        </p>
+
+        <div className="grid grid-cols-2 gap-3">
+          <div className="space-y-1 text-center">
+            <span className="text-[11px] font-semibold text-muted-foreground">الصورة المسجلة</span>
+            <div className="aspect-square w-full overflow-hidden rounded-xl border bg-secondary flex items-center justify-center">
+              {registeredPortraitUrl ? (
+                <img src={registeredPortraitUrl} alt="الصورة المسجلة" className="size-full object-cover" />
+              ) : (
+                <User className="size-10 text-muted-foreground" />
+              )}
+            </div>
+          </div>
+
+          <div className="space-y-1 text-center">
+            <span className="text-[11px] font-semibold text-muted-foreground">الصورة الحية الآن</span>
+            <div className="aspect-square w-full overflow-hidden rounded-xl border bg-slate-950 flex items-center justify-center">
+              {captured ? (
+                <img src={captured} alt="الصورة الملتقطة" className="size-full object-cover" />
+              ) : !cameraError ? (
+                <video
+                  ref={videoRef}
+                  autoPlay
+                  playsInline
+                  muted
+                  className="size-full object-cover"
+                />
+              ) : (
+                <label className="flex flex-col items-center justify-center gap-1 p-3 text-xs text-white cursor-pointer">
+                  <Camera className="size-8 text-primary" />
+                  <span>فتح الكاميرا الأمامية</span>
+                  <input
+                    type="file"
+                    accept="image/*"
+                    capture="user"
+                    className="hidden"
+                    onChange={handleFileFallback}
+                  />
+                </label>
+              )}
+            </div>
+          </div>
+        </div>
+
+        {!captured ? (
+          <div className="flex gap-2">
+            {!cameraError && (
+              <Button type="button" className="flex-1" onClick={captureFrame}>
+                <Camera className="size-4" />
+                التقاط صورة حية الآن
+              </Button>
+            )}
+            <label className="inline-flex flex-1 items-center justify-center gap-1.5 rounded-md border px-3 py-2 text-xs font-semibold cursor-pointer hover:bg-secondary">
+              <Camera className="size-4" />
+              التقاط من كاميرا الجهاز
+              <input
+                type="file"
+                accept="image/*"
+                capture="user"
+                className="hidden"
+                onChange={handleFileFallback}
+              />
+            </label>
+          </div>
+        ) : (
+          <div className="space-y-2 pt-1">
+            <div className="grid grid-cols-2 gap-2">
+              <Button
+                type="button"
+                disabled={submitting}
+                onClick={async () => {
+                  setSubmitting(true);
+                  await onSubmit(captured, true);
+                  setSubmitting(false);
+                }}
+                className="gap-1.5"
+              >
+                <CheckCircle2 className="size-4" />
+                تأكيد مطابقة الهوية
+              </Button>
+              <Button
+                type="button"
+                variant="destructive"
+                disabled={submitting}
+                onClick={async () => {
+                  setSubmitting(true);
+                  await onSubmit(captured, false);
+                  setSubmitting(false);
+                }}
+                className="gap-1.5"
+              >
+                <ShieldAlert className="size-4" />
+                صورة مختلفة (إخلال)
+              </Button>
+            </div>
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              className="w-full"
+              onClick={() => setCaptured(null)}
+            >
+              إعادة التقاط الصورة
+            </Button>
+            {hasActiveOrder && (
+              <p className="text-[11px] text-center text-muted-foreground">
+                لديك طلب نشط حالياً: عند عدم التطابق سينتظر التطبيق تسليم الطلب ثم يغلق الحساب.
+              </p>
+            )}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function Location({ title, address }: { title: string; address: string }) {
+  return (
+    <div>
+      <p className="mb-1 text-xs text-muted-foreground">{title}</p>
+      <p className="text-sm leading-7">{address}</p>
+      <Button asChild variant="outline" size="sm" className="mt-2">
+        <a
+          href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(address)}`}
+          target="_blank"
+          rel="noreferrer"
+        >
+          <Navigation className="size-4" />
+          الموقع
+        </a>
+      </Button>
+    </div>
+  );
 }
