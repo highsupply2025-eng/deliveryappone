@@ -1,4 +1,4 @@
-const CACHE = "foodhub-shell-v3";
+const CACHE = "foodhub-shell-v4";
 
 self.addEventListener("install", (event) => {
   self.skipWaiting();

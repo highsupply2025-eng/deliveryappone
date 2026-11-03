@@ -661,9 +661,10 @@ function Panel() {
         )}
       </main>
 
+      {/* Professional Bottom Navigation Dock for FoodHub Admin */}
       <nav
         aria-label="شريط التنقل السفلي للإدارة"
-        className="fixed inset-x-0 bottom-0 z-30 border-t border-border/80 bg-card/95 backdrop-blur-md px-2 pt-1.5 pb-[max(0.5rem,env(safe-area-inset-bottom))] shadow-[0_-4px_20px_rgba(15,23,42,0.06)]"
+        className="fixed inset-x-0 bottom-0 z-30 border-t border-border/80 bg-card/95 backdrop-blur-xl px-2 pt-1 pb-[max(0.6rem,env(safe-area-inset-bottom))] shadow-[0_-8px_30px_rgba(15,23,42,0.08)]"
       >
         <div className="mx-auto grid w-full max-w-3xl grid-cols-4 gap-1">
           {tabs.map((t) => {
@@ -677,24 +678,24 @@ function Panel() {
                   setTab(t.id);
                   setSelectedCourierId(null);
                 }}
-                className="group relative flex min-h-[60px] flex-col items-center justify-center gap-1 rounded-2xl px-1 py-1.5 transition-all"
+                className="group relative flex min-h-[62px] flex-col items-center justify-center gap-1 rounded-2xl px-1 py-1 transition-all duration-150 active:scale-90 select-none"
               >
                 {active && (
-                  <span className="absolute top-0 h-1 w-8 rounded-full bg-primary" />
+                  <span className="absolute top-0 h-1 w-8 rounded-full bg-amber-400 shadow-xs" />
                 )}
                 <span
-                  className={`relative flex h-8 w-12 items-center justify-center rounded-2xl transition-all duration-200 ${
+                  className={`relative flex h-8.5 w-12 items-center justify-center rounded-2xl transition-all duration-200 ${
                     active
-                      ? "bg-primary text-primary-foreground shadow-xs scale-105"
-                      : "text-muted-foreground group-hover:bg-secondary group-hover:text-foreground"
+                      ? "bg-gradient-to-b from-amber-400 to-amber-500 text-slate-950 font-black shadow-md shadow-amber-400/30 scale-105"
+                      : "text-muted-foreground group-hover:bg-muted group-hover:text-foreground"
                   }`}
                 >
                   <t.icon className={`size-5 ${active ? "stroke-[2.4]" : "stroke-[1.9]"}`} />
                   {t.n > 0 && (
                     <span
-                      className={`absolute -top-1 -start-1 flex h-4 min-w-4 items-center justify-center rounded-full px-1 text-[9px] font-black ${
+                      className={`absolute -top-1.5 -start-1.5 flex h-4.5 min-w-4.5 items-center justify-center rounded-full px-1 text-[9px] font-black shadow-xs ring-2 ring-card ${
                         active
-                          ? "bg-foreground text-background"
+                          ? "bg-slate-950 text-white dark:bg-card dark:text-foreground"
                           : "bg-primary text-primary-foreground"
                       }`}
                     >
@@ -703,8 +704,8 @@ function Panel() {
                   )}
                 </span>
                 <span
-                  className={`text-[11px] leading-tight transition-colors ${
-                    active ? "font-extrabold text-foreground" : "font-medium text-muted-foreground"
+                  className={`text-[11px] leading-tight transition-colors tracking-tight ${
+                    active ? "font-black text-foreground" : "font-semibold text-muted-foreground"
                   }`}
                 >
                   {t.label}

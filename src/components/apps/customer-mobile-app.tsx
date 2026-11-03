@@ -1080,68 +1080,74 @@ export function CustomerMobileApp() {
           </div>
         )}
 
+        {/* Professional Bottom Navigation Dock for FoodHub Customer */}
         <nav
-          className="fixed inset-x-0 bottom-0 z-30 mx-auto grid w-full max-w-[680px] grid-cols-4 gap-1 border-t bg-card/95 px-2 pt-1.5 pb-[calc(0.45rem+env(safe-area-inset-bottom))] shadow-[0_-4px_20px_rgba(15,23,42,0.06)] backdrop-blur"
+          className="fixed inset-x-0 bottom-0 z-30 mx-auto w-full max-w-[680px] border-t border-border/80 bg-card/95 backdrop-blur-xl px-2 pt-1 pb-[max(0.6rem,env(safe-area-inset-bottom))] shadow-[0_-8px_30px_rgba(15,23,42,0.08)]"
           aria-label="تنقل تطبيق العميل"
         >
-          {[
-            { id: "home" as Tab, label: ar ? "الرئيسية" : "Home", icon: Home, badge: null as number | null },
-            {
-              id: "cart" as Tab,
-              label: ar ? "السلة" : "Cart",
-              icon: ShoppingBag,
-              badge: lines.length > 0 ? lines.reduce((v, l) => v + l.quantity, 0) : null,
-            },
-            { id: "radar" as Tab, label: ar ? "طلباتي" : "Orders", icon: Receipt, badge: null as number | null },
-            { id: "profile" as Tab, label: ar ? "حسابي" : "Account", icon: User, badge: null as number | null },
-          ].map((n) => {
-            const isActive =
-              (tab === n.id || (n.id === "home" && tab === "kitchens")) && !selected;
-            return (
-              <button
-                key={n.id}
-                type="button"
-                aria-current={isActive ? "page" : undefined}
-                onClick={() => go(n.id)}
-                className={`group relative flex min-h-[60px] flex-col items-center justify-center gap-1 rounded-2xl px-1 py-1.5 transition-all select-none ${
-                  isActive
-                    ? "text-foreground"
-                    : "text-muted-foreground hover:bg-muted/60 hover:text-foreground"
-                }`}
-              >
-                {isActive && (
-                  <span className="absolute top-0 h-1 w-8 rounded-full bg-primary" />
-                )}
-                <div
-                  className={`relative flex h-8 w-12 items-center justify-center rounded-2xl transition-all ${
-                    isActive
-                      ? "bg-primary text-primary-foreground shadow-xs scale-105"
-                      : "bg-transparent group-hover:bg-muted"
-                  }`}
+          <div className="grid grid-cols-5 gap-1">
+            {[
+              { id: "home" as Tab, label: ar ? "الرئيسية" : "Home", icon: Home, badge: null as number | null },
+              {
+                id: "kitchens" as Tab,
+                label: ar ? "المطاعم" : "Kitchens",
+                icon: Store,
+                badge: restaurants.length > 0 ? restaurants.length : null,
+              },
+              {
+                id: "cart" as Tab,
+                label: ar ? "السلة" : "Cart",
+                icon: ShoppingBag,
+                badge: lines.length > 0 ? lines.reduce((v, l) => v + l.quantity, 0) : null,
+              },
+              { id: "radar" as Tab, label: ar ? "طلباتي" : "Orders", icon: Receipt, badge: null as number | null },
+              { id: "profile" as Tab, label: ar ? "حسابي" : "Account", icon: User, badge: null as number | null },
+            ].map((n) => {
+              const isActive = (tab === n.id) && !selected;
+              return (
+                <button
+                  key={n.id}
+                  type="button"
+                  aria-current={isActive ? "page" : undefined}
+                  onClick={() => go(n.id)}
+                  className="group relative flex min-h-[62px] flex-col items-center justify-center gap-1 rounded-2xl px-1 py-1 transition-all duration-150 active:scale-90 select-none"
                 >
-                  <n.icon className="size-4.5 stroke-[2.2]" />
-                  {n.badge !== null && n.badge > 0 && (
-                    <span
-                      className={`absolute -top-1.5 -left-1.5 flex h-4 min-w-4 items-center justify-center rounded-full px-1 text-[9px] font-black shadow-xs ${
-                        isActive
-                          ? "bg-foreground text-background"
-                          : "bg-primary text-primary-foreground"
-                      }`}
-                    >
-                      {n.badge}
-                    </span>
+                  {isActive && (
+                    <span className="absolute top-0 h-1 w-8 rounded-full bg-amber-400 shadow-xs" />
                   )}
-                </div>
-                <span
-                  className={`max-w-full truncate text-[11px] leading-tight ${
-                    isActive ? "font-extrabold text-foreground" : "font-medium"
-                  }`}
-                >
-                  {n.label}
-                </span>
-              </button>
-            );
-          })}
+                  <span
+                    className={`relative flex h-8.5 w-12 items-center justify-center rounded-2xl transition-all duration-200 ${
+                      isActive
+                        ? "bg-gradient-to-b from-amber-400 to-amber-500 text-slate-950 font-black shadow-md shadow-amber-400/30 scale-105"
+                        : "text-muted-foreground group-hover:bg-muted group-hover:text-foreground"
+                    }`}
+                  >
+                    <n.icon className={`size-5 ${isActive ? "stroke-[2.4]" : "stroke-[1.9]"}`} />
+                    {n.badge !== null && n.badge > 0 && (
+                      <span
+                        className={`absolute -top-1.5 -start-1.5 flex h-4.5 min-w-4.5 items-center justify-center rounded-full px-1 text-[9px] font-black shadow-xs ring-2 ring-card ${
+                          n.id === "cart"
+                            ? "bg-rose-600 text-white animate-pulse"
+                            : isActive
+                              ? "bg-slate-950 text-white dark:bg-card dark:text-foreground"
+                              : "bg-primary text-primary-foreground"
+                        }`}
+                      >
+                        {n.badge}
+                      </span>
+                    )}
+                  </span>
+                  <span
+                    className={`max-w-full truncate text-[11px] leading-tight transition-colors tracking-tight ${
+                      isActive ? "font-black text-foreground" : "font-semibold text-muted-foreground"
+                    }`}
+                  >
+                    {n.label}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
         </nav>
 
         <Dialog.Root
