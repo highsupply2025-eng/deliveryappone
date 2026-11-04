@@ -15,24 +15,53 @@ export function useSession() {
     let currentId: string | null | undefined;
 
     const loadRole = async (u: User | null) => {
-      if (currentId === (u?.id ?? null)) return;
-      currentId = u?.id ?? null;
       const version = ++generation;
-      if (active) { setUser(u); setRole(null); setLoading(true); }
+      currentId = u?.id ?? null;
+      if (active) {
+        setUser(u);
+        setLoading(true);
+      }
       if (!u) {
-        if (active) setLoading(false);
+        if (active) {
+          setRole(null);
+          setLoading(false);
+        }
         return;
       }
-      const { data } = await supabase.from("user_roles").select("role").eq("user_id", u.id);
-      if (!active || version !== generation) return;
-      const roles = (data ?? []).map((r) => r.role as AppRole);
-      const priority: AppRole[] = ["admin", "restaurant", "courier", "customer"];
-      setRole(priority.find((p) => roles.includes(p)) ?? "customer");
-      setLoading(false);
+
+      try {
+        const { data, error } = await supabase
+          .from("user_roles")
+          .select("role")
+          .eq("user_id", u.id);
+
+        if (!active || version !== generation) return;
+
+        const roles = (data ?? []).map((r) => r.role as AppRole);
+        const metaRole = u.user_metadata?.role as AppRole | undefined;
+        if (metaRole && !roles.includes(metaRole)) {
+          roles.push(metaRole);
+        }
+
+        const priority: AppRole[] = ["admin", "restaurant", "courier", "customer"];
+        setRole(priority.find((p) => roles.includes(p)) ?? metaRole ?? "customer");
+      } catch (err) {
+        console.error("Failed to load user role:", err);
+        const metaRole = u.user_metadata?.role as AppRole | undefined;
+        if (active && version === generation) {
+          setRole(metaRole ?? "customer");
+        }
+      } finally {
+        if (active && version === generation) {
+          setLoading(false);
+        }
+      }
     };
 
     const { data: sub } = supabase.auth.onAuthStateChange((_event, session) => {
-      queueMicrotask(() => { if(active) void loadRole(session?.user ?? null); });
+      queueMicrotask(() => {
+        if (active) void loadRole(session?.user ?? null);
+      });
     });
 
     void supabase.auth.getSession().then(({ data }) => {
@@ -50,8 +79,8 @@ export function useSession() {
 }
 
 export function dashboardPathFor(role: AppRole | null): string {
-  if (role === "admin") return "/admin";
+  if (role === "admin") return "/admin-app";
   if (role === "restaurant") return "/vendor";
-  if (role === "courier") return "/courier";
+  if (role === "courier") return "/captain";
   return "/orders";
 }

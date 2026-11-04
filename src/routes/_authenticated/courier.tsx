@@ -1,8 +1,10 @@
-import { createFileRoute } from "@tanstack/react-router";
-import { RoleGuard } from "@/components/auth/role-guard";
+import { createFileRoute, redirect } from "@tanstack/react-router";
 import { SimpleCourierApp } from "@/components/apps/simple-courier-app";
 
 export const Route = createFileRoute("/_authenticated/courier")({
+  beforeLoad: () => {
+    throw redirect({ to: "/captain" });
+  },
   head: () => ({ meta: [
     { title: "FoodHub | شيفت المندوب" },
     { name: "description", content: "شيفت المندوب والأحياء المحددة من الإدارة ومواقع الطلبات." },
@@ -12,5 +14,5 @@ export const Route = createFileRoute("/_authenticated/courier")({
     { name: "twitter:card", content: "summary" },
     { name: "robots", content: "noindex" },
   ] }),
-  component: () => <RoleGuard allow={["courier"]}><SimpleCourierApp /></RoleGuard>,
+  component: () => <SimpleCourierApp />,
 });

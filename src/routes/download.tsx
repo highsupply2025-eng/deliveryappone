@@ -582,7 +582,7 @@ export function DownloadPage() {
                 </p>
                 <div className="flex items-center gap-3 pt-1">
                   <Link
-                    to="/courier"
+                    to="/captain"
                     onClick={() => sounds.playClick()}
                     className="text-xs font-bold text-cyan-400 hover:text-cyan-300 flex items-center gap-1"
                   >

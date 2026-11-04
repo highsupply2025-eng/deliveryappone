@@ -318,7 +318,7 @@ export function AppSimulatorWorkspace({ showHeader = false }: AppSimulatorProps)
               {lang === "ar" ? "المحاكاة الفورية" : "Live Simulate"}
             </span>
             <Link
-              to="/courier"
+              to="/captain"
               onClick={(e) => e.stopPropagation()}
               className="text-slate-400 hover:text-white flex items-center gap-1 text-[11px] hover:underline"
             >
@@ -614,7 +614,7 @@ function renderActiveAppContent(
           </div>
         </div>
         <Link
-          to="/courier"
+          to="/captain"
           className="text-xs text-amber-400 hover:text-amber-300 font-bold flex items-center gap-1"
         >
           {lang === "ar" ? "فتح اللوحة كاملة" : "Open Full HUD"}

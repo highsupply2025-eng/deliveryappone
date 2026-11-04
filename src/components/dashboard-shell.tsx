@@ -44,9 +44,9 @@ const NAV: Record<Exclude<AppRole, never>, NavItem[]> = {
     { to: "/vendor", hash: "reports", icon: BarChart3, ar: "التقارير", en: "Reports" },
   ],
   courier: [
-    { to: "/courier", icon: LayoutDashboard, ar: "نظرة عامة", en: "Overview" },
-    { to: "/courier", hash: "available", icon: Bike, ar: "طلبات متاحة", en: "Available" },
-    { to: "/courier", hash: "mine", icon: ClipboardList, ar: "توصيلاتي", en: "My deliveries" },
+    { to: "/captain", icon: LayoutDashboard, ar: "نظرة عامة", en: "Overview" },
+    { to: "/captain", hash: "available", icon: Bike, ar: "طلبات متاحة", en: "Available" },
+    { to: "/captain", hash: "mine", icon: ClipboardList, ar: "توصيلاتي", en: "My deliveries" },
   ],
   customer: [
     { to: "/orders", icon: ClipboardList, ar: "طلباتي", en: "My orders" },

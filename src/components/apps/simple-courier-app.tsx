@@ -130,6 +130,21 @@ function playOrderAlertChime() {
 
 export function SimpleCourierApp() {
   const { user, role, loading } = useSession();
+  const staffApp = useQuery({
+    queryKey: ["staff-app-status", user?.id],
+    queryFn: async () => {
+      if (!user?.id) return null;
+      const { data } = await supabase
+        .from("staff_applications")
+        .select("status")
+        .eq("user_id", user.id)
+        .maybeSingle();
+      return data;
+    },
+    enabled: !!user?.id && role !== "courier",
+    staleTime: 5000,
+  });
+
   if (loading)
     return (
       <div
@@ -157,7 +172,13 @@ export function SimpleCourierApp() {
         </div>
       </div>
     );
-  if (role !== "courier") return <StaffOnboarding userId={user.id} type="courier" />;
+
+  const isApprovedCourier =
+    role === "courier" ||
+    user.user_metadata?.role === "courier" ||
+    staffApp.data?.status === "approved";
+
+  if (!isApprovedCourier) return <StaffOnboarding userId={user.id} type="courier" />;
   return <CourierWork userId={user.id} />;
 }
 
@@ -1662,13 +1683,22 @@ function CourierWork({ userId }: { userId: string }) {
                     <img
                       src={item.customAvatar}
                       alt={item.label}
+                      onError={(e) => {
+                        (e.currentTarget as HTMLElement).style.display = "none";
+                        const parent = e.currentTarget.parentElement;
+                        const fallback = parent?.querySelector(".dock-avatar-fallback");
+                        if (fallback) fallback.classList.remove("hidden");
+                      }}
                       className={`size-6 rounded-full object-cover ring-2 ${
                         active ? "ring-slate-950" : "ring-muted-foreground/30"
                       }`}
                     />
-                  ) : (
-                    <item.icon className={`size-5 ${active ? "stroke-[2.4]" : "stroke-[1.9]"}`} />
-                  )}
+                  ) : null}
+                  <item.icon
+                    className={`size-5 ${item.customAvatar ? "dock-avatar-fallback hidden " : ""}${
+                      active ? "stroke-[2.4]" : "stroke-[1.9]"
+                    }`}
+                  />
 
                   {item.badge != null && (
                     <span

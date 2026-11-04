@@ -32,7 +32,7 @@ const ROLES = [
     id: "courier",
     nameAr: "تطبيق المندوب الذكي",
     nameEn: "Courier HUD",
-    path: "/courier",
+    path: "/captain",
     icon: Bike,
     color: "from-cyan-500 to-blue-600 text-white",
     badgeAr: "ملاحة + إثبات AI",

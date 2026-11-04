@@ -71,6 +71,9 @@ function HomePage() {
         window.location.replace("/admin-app");
         return;
       }
+      if (appParam === "captain" || appParam === "courier") {
+        localStorage.setItem("foodhub_native_app", "captain");
+      }
     } catch { /* storage may be unavailable */ }
   }, [appParam]);
 

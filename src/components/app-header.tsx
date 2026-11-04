@@ -190,7 +190,7 @@ function SiteHeader() {
             {/* Authenticated Courier Link */}
             {isCourier && (
               <Button asChild variant="ghost" size="sm" className="gap-1.5 text-cyan-600 dark:text-cyan-300 hover:text-cyan-700 dark:hover:text-cyan-200 hover:bg-cyan-500/10 border border-cyan-500/30 rounded-xl">
-                <Link to="/courier" onClick={() => sounds.playClick()}>
+                <Link to="/captain" onClick={() => sounds.playClick()}>
                   <Bike className="size-4 text-cyan-500 dark:text-cyan-400" />
                   <span>{lang === "ar" ? "لوحة المندوب الذكي" : "Courier HUD"}</span>
                 </Link>
@@ -300,7 +300,7 @@ function SiteHeader() {
               {/* Courier Link on Mobile */}
               {isCourier && (
                 <Button asChild variant="ghost" size="sm" className="justify-start gap-2 text-cyan-600 dark:text-cyan-300 hover:text-cyan-700 dark:hover:text-white hover:bg-cyan-500/10">
-                  <Link to="/courier" onClick={() => setMobileMenuOpen(false)}>
+                  <Link to="/captain" onClick={() => setMobileMenuOpen(false)}>
                     <Bike className="size-4 text-cyan-500 dark:text-cyan-400" />
                     {lang === "ar" ? "لوحة المندوب الذكي" : "Courier HUD"}
                   </Link>
