@@ -26,6 +26,7 @@ import logoShawarmaHouse from "@/assets/restaurant-shawarma-house.png.asset.json
 import logoKfc from "@/assets/restaurant-kfc.png.asset.json";
 import logoMcdonalds from "@/assets/restaurant-mcdonalds.png.asset.json";
 import type { CatalogMeal, CatalogRestaurant } from "@/lib/customer-catalog";
+import { getCategoryVisual, getMealImage } from "@/lib/customer-catalog";
 import {
   FOODHUB_MARKET_STORE,
   FOODHUB_MARKET_CATEGORIES,
@@ -158,44 +159,7 @@ const promoBanners = [
   },
 ];
 
-const visualCategories = [
-  { id: "all", nameAr: "الكل", nameEn: "All", emoji: "🍽️" },
-  { id: "برجر", nameAr: "برجر", nameEn: "Burgers", emoji: "🍔" },
-  { id: "بيتزا", nameAr: "بيتزا", nameEn: "Pizza", emoji: "🍕" },
-  { id: "شاورما", nameAr: "شاورما", nameEn: "Shawarma", emoji: "🌯" },
-  { id: "دجاج", nameAr: "دجاج", nameEn: "Chicken", emoji: "🍗" },
-  { id: "مشاوي", nameAr: "مشاوي", nameEn: "Grills", emoji: "🥩" },
-  { id: "حلويات", nameAr: "حلويات", nameEn: "Desserts", emoji: "🍰" },
-  { id: "مشروبات", nameAr: "مشروبات", nameEn: "Drinks", emoji: "☕" },
-  { id: "صحي", nameAr: "صحي", nameEn: "Healthy", emoji: "🥗" },
-];
 
-function getMealImage(meal: CatalogMeal): string {
-  if (
-    meal.image_url &&
-    !meal.image_url.includes("logo") &&
-    !meal.image_url.includes("placeholder") &&
-    !meal.image_url.includes(".svg")
-  ) {
-    return meal.image_url;
-  }
-  const name = `${meal.name_ar} ${meal.name_en || ""} ${meal.category_ar || ""}`.toLowerCase();
-  if (name.includes("برجر") || name.includes("burger"))
-    return "https://images.unsplash.com/photo-1568901346375-23c9450c58cd?w=600&auto=format&fit=crop&q=80";
-  if (name.includes("بيتزا") || name.includes("pizza"))
-    return "https://images.unsplash.com/photo-1513104890138-7c749659a591?w=600&auto=format&fit=crop&q=80";
-  if (name.includes("شاورما") || name.includes("shawarma"))
-    return "https://images.unsplash.com/photo-1529006557810-274b9b2fc783?w=600&auto=format&fit=crop&q=80";
-  if (name.includes("دجاج") || name.includes("بروستد") || name.includes("chicken"))
-    return "https://images.unsplash.com/photo-1626082927389-6cd097cdc6ec?w=600&auto=format&fit=crop&q=80";
-  if (name.includes("حلى") || name.includes("كيك") || name.includes("sweet") || name.includes("dessert"))
-    return "https://images.unsplash.com/photo-1551024709-8f23befc6f87?w=600&auto=format&fit=crop&q=80";
-  if (name.includes("قهوة") || name.includes("عصير") || name.includes("drink") || name.includes("coffee"))
-    return "https://images.unsplash.com/photo-1509042239860-f550ce710b93?w=600&auto=format&fit=crop&q=80";
-  if (name.includes("مشاوي") || name.includes("مندي") || name.includes("لحم"))
-    return "https://images.unsplash.com/photo-1555939594-58d7cb561ad1?w=600&auto=format&fit=crop&q=80";
-  return "https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=600&auto=format&fit=crop&q=80";
-}
 
 function getRestaurantCover(r: CatalogRestaurant): string {
   if (r.image_url && !r.image_url.includes("logo") && !r.image_url.includes(".svg")) {
@@ -243,19 +207,10 @@ export function CustomerDiscovery(p: Props) {
     });
   }, [marketCategory, p.search]);
 
-  // Match category filters with existing categories
+  // Match category filters with rich visual graphics and emojis
   const categoriesList = useMemo(() => {
     const set = new Set(["all", ...p.categories]);
-    visualCategories.forEach((vc) => set.add(vc.id));
-    return Array.from(set).map((id) => {
-      const match = visualCategories.find((v) => v.id === id);
-      return {
-        id,
-        nameAr: match ? match.nameAr : id,
-        nameEn: match ? match.nameEn : id,
-        emoji: match ? match.emoji : "🍴",
-      };
-    });
+    return Array.from(set).map((id) => getCategoryVisual(id));
   }, [p.categories]);
 
   const restaurants = useMemo(() => {
@@ -593,8 +548,12 @@ export function CustomerDiscovery(p: Props) {
                       <div className="relative aspect-square w-full rounded-xl overflow-hidden bg-slate-100 mb-2.5">
                         <img
                           loading="lazy"
-                          src={m.image_url || getMealImage(m)}
+                          src={getMealImage(m)}
                           alt={m.name_ar}
+                          onError={(e) => {
+                            (e.currentTarget as HTMLImageElement).src =
+                              "https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=600&auto=format&fit=crop&q=80";
+                          }}
                           className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
                         />
 
@@ -685,14 +644,14 @@ export function CustomerDiscovery(p: Props) {
                 <div
                   className={`w-14 h-14 rounded-2xl flex items-center justify-center text-2xl transition-all duration-200 shadow-sm ${
                     isSelected
-                      ? "bg-amber-500 text-slate-950 ring-4 ring-amber-500/25 scale-105 shadow-md shadow-amber-500/20 font-bold"
-                      : "bg-white border border-slate-200/90 text-slate-700 hover:border-amber-300 hover:bg-amber-50/50"
+                      ? "bg-gradient-to-br from-amber-400 to-amber-500 text-slate-950 ring-4 ring-amber-500/25 scale-105 shadow-md shadow-amber-500/30 font-bold"
+                      : "bg-white border border-slate-200/90 text-slate-800 hover:border-amber-300 hover:bg-amber-50/50 hover:scale-102"
                   }`}
                 >
-                  {c.emoji}
+                  <span className="drop-shadow-xs transition-transform group-hover:scale-110">{c.emoji}</span>
                 </div>
                 <span
-                  className={`text-xs font-semibold tracking-tight transition-colors ${
+                  className={`text-xs font-semibold tracking-tight transition-colors text-center max-w-[72px] truncate ${
                     isSelected ? "text-amber-600 font-black" : "text-slate-600 group-hover:text-slate-900"
                   }`}
                 >
@@ -848,6 +807,10 @@ export function CustomerDiscovery(p: Props) {
                                 loading="lazy"
                                 src={mealImg}
                                 alt={m.name_ar}
+                                onError={(e) => {
+                                  (e.currentTarget as HTMLImageElement).src =
+                                    "https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=600&auto=format&fit=crop&q=80";
+                                }}
                                 className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
                               />
 

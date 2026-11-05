@@ -43,6 +43,7 @@ import {
   customerCatalog,
   catalogCategories,
   validCatalogCart,
+  getMealImage,
   type CatalogMeal,
   type CatalogRestaurant,
 } from "@/lib/customer-catalog";
@@ -607,17 +608,15 @@ export function CustomerMobileApp() {
                         }}
                         className="flex flex-1 items-center gap-3 text-start min-w-0"
                       >
-                        {m.image_url ? (
-                          <img
-                            src={m.image_url}
-                            alt={m.name_ar}
-                            className="size-16 shrink-0 rounded-xl object-cover border border-slate-100"
-                          />
-                        ) : (
-                          <div className="flex size-16 shrink-0 items-center justify-center rounded-xl bg-amber-50 text-amber-600">
-                            <UtensilsCrossed className="size-6" />
-                          </div>
-                        )}
+                        <img
+                          src={getMealImage(m)}
+                          alt={m.name_ar}
+                          onError={(e) => {
+                            (e.currentTarget as HTMLImageElement).src =
+                              "https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=600&auto=format&fit=crop&q=80";
+                          }}
+                          className="size-16 shrink-0 rounded-xl object-cover border border-slate-100 bg-slate-50"
+                        />
                         <div className="min-w-0 flex-1">
                           <strong className="block text-sm font-bold text-slate-900 truncate">
                             {m.name_ar}
@@ -1203,13 +1202,15 @@ export function CustomerMobileApp() {
 
               {meal && (
                 <>
-                  {meal.image_url && (
-                    <img
-                      className="customer-sheet-food"
-                      src={meal.image_url}
-                      alt={meal.name_ar}
-                    />
-                  )}
+                  <img
+                    className="customer-sheet-food"
+                    src={getMealImage(meal)}
+                    alt={meal.name_ar}
+                    onError={(e) => {
+                      (e.currentTarget as HTMLImageElement).src =
+                        "https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=600&auto=format&fit=crop&q=80";
+                    }}
+                  />
                   <div className="flex items-center justify-between">
                     <strong>{Number(meal.price).toFixed(2)} ر.س</strong>
                     <Button
