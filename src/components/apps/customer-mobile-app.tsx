@@ -29,6 +29,7 @@ import {
   Trash2,
   KeyRound,
   CheckCircle2,
+  RefreshCw,
 } from "lucide-react";
 import * as Dialog from "@radix-ui/react-dialog";
 import { toast } from "sonner";
@@ -432,6 +433,32 @@ export function CustomerMobileApp() {
                   {favIds.length}
                 </span>
               )}
+            </Button>
+            <Button
+              variant="outline"
+              size="icon"
+              aria-label="تحديث البيانات"
+              title="تحديث التطبيق والبيانات"
+              onClick={async () => {
+                toast.loading(ar ? "جارِ تحديث التطبيق والقوائم..." : "Updating app...");
+                try {
+                  if ("caches" in window) {
+                    const keys = await caches.keys();
+                    await Promise.all(keys.map((k) => caches.delete(k)));
+                  }
+                  if ("serviceWorker" in navigator) {
+                    const regs = await navigator.serviceWorker.getRegistrations();
+                    for (const r of regs) {
+                      await r.update();
+                    }
+                  }
+                } catch {
+                  /* ignore */
+                }
+                window.location.reload();
+              }}
+            >
+              <RefreshCw className="size-4 text-slate-700" />
             </Button>
             <Button
               variant="outline"
